@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { ArrowRight, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ActionList } from "@/components/dashboard/action-list";
+import { OverdueBanner, TotalsCards } from "@/components/dashboard/totals";
 import { ExpenseList } from "@/components/expenses/expense-list";
+import { LiveRefresh } from "@/components/live/live-refresh";
+import { dashboard } from "@/lib/data/dashboard";
 import { InviteStatusBadge } from "@/components/domain/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { agreementOverview, familyContext, listExpenses } from "@/lib/data/family";
@@ -21,18 +25,21 @@ export default function HomePage() {
 async function Home() {
   const me = await requireOnboarded("/app");
   const ctx = await familyContext("/app");
-  const [{ items }, overview] = await Promise.all([listExpenses(ctx, { limit: 30 }), agreementOverview(ctx)]);
+  const [{ items }, overview, dash] = await Promise.all([listExpenses(ctx, { limit: 30 }), agreementOverview(ctx), dashboard(ctx)]);
   const f = me.family;
   const first = me.displayName.split(" ")[0];
   const coParent = f.coParent.name.split(" ")[0] || "the other parent";
-  const open = items.filter((e) => e.settlement.state !== "CANCELLED");
-  const action = open.filter((e) => e.verdict.code === "NEEDS_REVIEW" || e.approval.state === "REQUIRED").slice(0, 5);
+  const action = dash.actions.slice(0, 6);
   const recent = items.slice(0, 5);
   const ruleCount = overview.active?.rules.filter((r) => r.reviewState === "CONFIRMED" || r.reviewState === "EDITED").length ?? 0;
 
   return (
     <div className="space-y-8">
+      <LiveRefresh target={{ kind: "list" }} />
       <h1 className="t-h1">Hi {first}</h1>
+
+      <OverdueBanner totals={dash.totals} />
+      <TotalsCards totals={dash.totals} />
 
       <Link
         href="/app/expenses/new"
@@ -52,9 +59,9 @@ async function Home() {
       <section aria-labelledby="action-h" className="space-y-3">
         <h2 id="action-h" className="t-h3">Needs your action</h2>
         {action.length ? (
-          <ExpenseList items={action} />
+          <ActionList items={action} />
         ) : (
-          <p className="rounded-[14px] border border-dashed border-border bg-surface p-5 text-muted-foreground">Nothing is waiting on you. Expenses that need approval or a conversation show up here.</p>
+          <p className="rounded-[14px] border border-dashed border-border bg-surface p-5 text-muted-foreground">Nothing is waiting on you. Approvals to ask for, receipts to check and payments to confirm show up here.</p>
         )}
       </section>
 

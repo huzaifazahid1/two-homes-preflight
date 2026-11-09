@@ -7,7 +7,7 @@ import { useState } from "react";
 import { SourceSheet, type SourceTarget } from "@/components/domain/source-sheet";
 import { VerdictPanel } from "@/components/domain/verdict-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ConfirmSheet } from "@/components/domain/confirm-sheet";
 import { api, errorMessage } from "@/hooks/api";
 import type { ExpenseView } from "@/types/views";
 
@@ -34,26 +34,29 @@ export function ExpenseVerdict({ expense, agreementId, owedLabel, otherLabel }: 
   );
 }
 
+const CANCELLABLE = new Set(["NONE", "RECEIPT_SUBMITTED", "RECEIPT_ISSUE", "READY", "AWAITING_PAYMENT", "PAYMENT_FAILED"]);
+
 export function ExpenseActions({ expense }: { expense: ExpenseView }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closed = expense.settlement.state !== "NONE";
   const editable = !closed && expense.approval.state !== "REQUESTED";
+  // E.6.2: cancelling is possible for any state before the share is paid.
+  const cancellable = CANCELLABLE.has(expense.settlement.state);
 
-  async function cancel() {
-    setBusy(true);
+  async function cancel(): Promise<boolean> {
     setError(null);
     try {
       await api(`/api/expenses/${expense.id}/cancel`, { method: "POST" });
       router.refresh();
+      return true;
     } catch (e) {
       setError(errorMessage(e));
+      return false;
     }
-    setBusy(false);
   }
 
-  if (expense.settlement.state === "CANCELLED") return null;
+  if (!cancellable && !editable) return null;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
@@ -62,23 +65,22 @@ export function ExpenseActions({ expense }: { expense: ExpenseView }) {
             <Pencil aria-hidden /> Edit
           </Link>
         ) : null}
-        <Dialog>
-          <DialogTrigger render={<Button variant="ghost" className="h-11 px-4 text-danger hover:bg-danger-bg hover:text-danger" />}>
-            <XCircle aria-hidden /> Cancel expense
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Cancel this expense?</DialogTitle>
-              <DialogDescription>It stays in the history as cancelled. Nobody can request approval or payment for it after this.</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" className="h-11" />}>Keep it</DialogClose>
-              <Button className="h-11 bg-danger text-white hover:bg-danger/90" onClick={() => void cancel()} disabled={busy}>
-                {busy ? "Cancelling…" : "Cancel expense"}
+        {cancellable ? (
+          <ConfirmSheet
+            trigger={
+              <Button variant="ghost" className="h-11 px-4 text-danger hover:bg-danger-bg hover:text-danger">
+                <XCircle aria-hidden /> Cancel expense
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            }
+            title="Cancel this expense?"
+            description="It stays in the history as cancelled. Open approval and payment links stop working, and nobody can request approval or payment for it after this."
+            cancelLabel="Keep it"
+            confirmLabel="Cancel expense"
+            pendingLabel="Cancelling…"
+            destructive
+            onConfirm={cancel}
+          />
+        ) : null}
       </div>
       <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
     </div>

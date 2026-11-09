@@ -1,0 +1,25 @@
+# Daily job (Phase 3): expire approvals, approval reminders, payment reminders (Family plan).
+# Needs repository secrets APP_URL (e.g. https://your-app.onrender.com) and JOB_SECRET (same value as on Render).
+# Safe to run twice: every reminder has a dedupe key.
+name: daily-job
+
+on:
+  schedule:
+    - cron: "0 14 * * *" # 14:00 UTC daily (07:00 PT, 19:00 PKT)
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call POST /api/jobs/daily
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$JOB_SECRET" ]; then echo "APP_URL and JOB_SECRET secrets are required"; exit 1; fi
+          # Render free instances sleep: wake the app first, then run the job.
+          curl --silent --show-error --max-time 90 --retry 3 --retry-delay 15 "$APP_URL" > /dev/null || true
+          curl --fail-with-body --silent --show-error --max-time 120 --retry 2 --retry-delay 30 \
+            -X POST -H "Authorization: Bearer $JOB_SECRET" "$APP_URL/api/jobs/daily"

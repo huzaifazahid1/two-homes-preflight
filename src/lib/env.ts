@@ -58,6 +58,9 @@ const serverSchema = z
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),
     CLOUDINARY_FOLDER_PREFIX: z.string().default("two-homes/dev"),
+    /** Tests only: points receipt uploads at a local stub server. */
+    CLOUDINARY_API_BASE: z.url().default("https://api.cloudinary.com"),
+    CLOUDINARY_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   })
   .superRefine((env, ctx) => {
     if (env.DEMO_MODE && (!env.DEV_SECRET || env.DEV_SECRET.length < 32)) {

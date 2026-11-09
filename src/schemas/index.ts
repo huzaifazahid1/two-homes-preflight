@@ -79,3 +79,4 @@ export const connectCallbackSchema = z
 
 export * from "./agreement";
 export * from "./expense";
+export * from "./claims";

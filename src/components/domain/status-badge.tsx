@@ -2,8 +2,8 @@
 
 import { cn } from "cn";
 import { AnimatePresence, motion } from "motion/react";
-import type { ApprovalState, VerdictCode } from "@/types/firestore";
-import { APPROVAL_META, INVITE_STATUS, VERDICT_META, type Tone } from "./status-meta";
+import type { ApprovalState, SettlementState, VerdictCode } from "@/types/firestore";
+import { APPROVAL_META, DUE_SOON_META, INVITE_STATUS, OVERDUE_META, SETTLEMENT_META, VERDICT_META, type Tone } from "./status-meta";
 
 // Status and verdict chips: icon + words + colour, never colour alone (P.9, P.10).
 // Cross-fades when the status changes (real-time updates); the container is aria-live.
@@ -50,5 +50,11 @@ export function ApprovalStatusBadge({ state, className }: { state: ApprovalState
 /** Invite status chip; takes the status string so Server Components never pass icon components. */
 export function InviteStatusBadge({ status, className }: { status: keyof typeof INVITE_STATUS; className?: string }) {
   const s = INVITE_STATUS[status];
+  return <StatusBadge tone={s.tone} icon={s.icon} label={s.label} className={className} />;
+}
+
+/** Claim status; overdue and due soon are derived on the server and passed in. */
+export function SettlementStatusBadge({ state, overdue, dueSoon, className }: { state: SettlementState; overdue?: boolean; dueSoon?: boolean; className?: string }) {
+  const s = overdue ? OVERDUE_META : dueSoon ? DUE_SOON_META : SETTLEMENT_META[state];
   return <StatusBadge tone={s.tone} icon={s.icon} label={s.label} className={className} />;
 }

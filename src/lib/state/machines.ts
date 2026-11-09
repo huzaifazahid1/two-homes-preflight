@@ -81,6 +81,8 @@ export type TransitionPayload = {
   dueAt?: Date;
   externalReport?: { by: "owner" | "coparent"; method: string; date: Date; note?: string };
   revisedOwedCents?: number;
+  /** Extra timeline data for the events row (e.g. receipt match issues). Not used by guards. */
+  extra?: Record<string, string | number | boolean | string[]>;
 };
 
 export type TransitionFacts = {

@@ -62,6 +62,22 @@ export async function readPdfPages(bytes: Uint8Array): Promise<{ pages: Extracte
   }
 }
 
+/** Page count of a PDF receipt (Section I.2: at most 5 pages). 400 if it cannot be opened. */
+export async function countPdfPages(bytes: Uint8Array): Promise<number> {
+  let doc;
+  try {
+    doc = await getDocumentProxy(new Uint8Array(bytes));
+  } catch (err) {
+    const name = (err as { name?: string } | null)?.name ?? "";
+    throw new AppError("INVALID", name === "PasswordException" ? "This PDF is password protected. Remove the password and try again." : "This PDF could not be read. It may be damaged.", { cause: err });
+  }
+  try {
+    return doc.numPages;
+  } finally {
+    await doc.cleanup().catch(() => undefined);
+  }
+}
+
 function tidy(text: string): string {
   return text.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }

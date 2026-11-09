@@ -10,7 +10,7 @@ import { PayPalConnect } from "@/components/domain/paypal-connect";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError, errorMessage } from "@/hooks/api";
-import type { InviteSummary } from "@/types/views";
+import type { InviteSummary, LinkSummary } from "@/types/views";
 
 type Load = { kind: "loading" } | { kind: "ok"; s: InviteSummary } | { kind: "gone"; reason: string } | { kind: "invalid" } | { kind: "error"; message: string };
 
@@ -27,8 +27,8 @@ export function InviteLink() {
 
   const fetchSummary = useCallback(
     () =>
-      api<{ summary: InviteSummary }>(`/api/links/${token}`, { redirectOn401: false }).then(
-        ({ summary }): Load => ({ kind: "ok", s: summary }),
+      api<{ summary: LinkSummary }>(`/api/links/${token}`, { redirectOn401: false }).then(
+        ({ summary }): Load => (summary.purpose === "invite" ? { kind: "ok", s: summary } : { kind: "invalid" }),
         (e: unknown): Load => {
           if (e instanceof ApiError && e.status === 410) return { kind: "gone", reason: String(e.details?.reason ?? "expired") };
           if (e instanceof ApiError && e.status === 404) return { kind: "invalid" };

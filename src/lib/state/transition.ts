@@ -72,7 +72,7 @@ function flattenPatch(machine: Machine, patch: Patch): Record<string, unknown> {
 }
 
 function eventData(event: string, payload: TransitionPayload): Record<string, unknown> {
-  const data: Record<string, unknown> = { event };
+  const data: Record<string, unknown> = { ...(payload.extra ?? {}), event };
   if (payload.approvedCents !== undefined) data.approvedCents = payload.approvedCents;
   if (payload.newAmountCents !== undefined) data.newAmountCents = payload.newAmountCents;
   if (payload.owedCents !== undefined) data.owedCents = payload.owedCents;

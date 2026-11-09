@@ -194,7 +194,9 @@ export type NotificationType =
   | "payment_overdue"
   | "external_payment_reported"
   | "external_payment_confirmed"
+  | "external_payment_rejected"
   | "marked_received"
+  | "dispute_update"
   | "settled"
   | "payout_unclaimed"
   | "payout_failed"
@@ -213,6 +215,88 @@ export type NotificationDoc = {
   read: boolean;
   email: { status: "pending" | "sent" | "failed" | "skipped"; providerId?: string; error?: string; attempts: number };
   createdAt: Ts;
+};
+
+export type ApprovalDecision = "APPROVED" | "PARTIALLY_APPROVED" | "DECLINED";
+
+/** approvals/{expenseId}_{n} (server-only; holds the token hash). */
+export type ApprovalDoc = {
+  familyId: string;
+  expenseId: string;
+  n: number;
+  tokenHash: string;
+  requestedBy: string;
+  requestedByRole: Role;
+  approverRole: Role;
+  requestedAt: Ts;
+  expiresAt: Ts;
+  decision?: ApprovalDecision;
+  approvedCents?: number;
+  reason?: string;
+  decidedAt?: Ts;
+  purchasedBeforeApproval: boolean;
+  reminderSentAt?: Ts;
+};
+
+export type MatchIssue = "OVER_APPROVED" | "BEFORE_APPROVAL" | "MERCHANT_MISMATCH" | "LATE" | "POSSIBLE_DUPLICATE";
+
+export type ReceiptDoc = {
+  familyId: string;
+  memberUids: string[];
+  expenseId: string;
+  uploadedBy: string;
+  cloudinary: {
+    publicId: string;
+    resourceType: "image";
+    deliveryType: "private";
+    format: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    pages?: number;
+    version: number;
+    assetId: string;
+  };
+  originalFileName: string;
+  mimeType: string;
+  sha256: string;
+  parseStatus: "pending" | "parsed" | "failed" | "skipped";
+  parseError?: string;
+  parsed?: { merchant?: string; date?: string; totalCents?: number; lineItems?: { label: string; amountCents: number }[]; confidence: number };
+  confirmed?: { merchant: string; date: Ts; totalCents: number; confirmedAt: Ts; confirmedBy: string };
+  match?: { result: "OK" | "ISSUES"; issues: MatchIssue[]; possibleDuplicateOf?: string; at: Ts };
+  /** Issues a parent has looked at and accepted (e.g. "claim only the approved amount"). */
+  acknowledged?: MatchIssue[];
+  /** A newer receipt replaced this one on the same expense. Kept as evidence. */
+  replacedBy?: string;
+  createdAt: Ts;
+};
+
+export type DisputeRound = { by: Role; reason: string; proposedCents?: number; at: Ts };
+
+export type DisputeDoc = {
+  familyId: string;
+  memberUids: string[];
+  expenseId: string;
+  /** Who opened it (the paying parent). */
+  openedBy: Role;
+  /** Settlement state the dispute was opened from. */
+  openedFrom: SettlementState;
+  rounds: DisputeRound[];
+  status: "OPEN" | "AGREED" | "UNRESOLVED";
+  agreedCents?: number;
+  updatedAt: Ts;
+  createdAt: Ts;
+};
+
+export type JobRunDoc = {
+  startedAt: Ts;
+  finishedAt?: Ts;
+  runs: number;
+  remindersSent: number;
+  expiredApprovals: number;
+  payoutsChecked: number;
+  errors: string[];
 };
 
 export type SubscriptionDoc = {

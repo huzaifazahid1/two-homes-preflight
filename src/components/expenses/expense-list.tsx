@@ -1,8 +1,9 @@
 import { cn } from "cn";
 import Link from "next/link";
+import { LiveList } from "@/components/domain/live-list";
 import { Money } from "@/components/domain/money";
 import { CATEGORY_META } from "@/components/domain/status-meta";
-import { ApprovalStatusBadge, VerdictBadge } from "@/components/domain/status-badge";
+import { ApprovalStatusBadge, SettlementStatusBadge, VerdictBadge } from "@/components/domain/status-badge";
 import type { ExpenseView } from "@/types/views";
 
 // Expense card list (phones and the master column on desktop). Server Component.
@@ -14,15 +15,16 @@ export function formatDay(iso: string | null): string | null {
 
 export function ExpenseList({ items, activeId, compact = false }: { items: ExpenseView[]; activeId?: string; compact?: boolean }) {
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+    <LiveList className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
       {items.map((e) => {
         const Cat = CATEGORY_META[e.category].icon;
         const cancelled = e.settlement.state === "CANCELLED";
         const day = formatDay(e.date);
-        const showApproval = !cancelled && e.approval.state !== "NOT_REQUIRED" && e.approval.state !== "REQUIRED";
+        const showSettlement = !cancelled && e.settlement.state !== "NONE";
+        const showApproval = !cancelled && !showSettlement && e.approval.state !== "NOT_REQUIRED" && e.approval.state !== "REQUIRED";
         return (
-          <li key={e.id}>
             <Link
+              key={e.id}
               href={`/app/expenses/${e.id}`}
               aria-current={activeId === e.id ? "page" : undefined}
               className={cn(
@@ -47,13 +49,13 @@ export function ExpenseList({ items, activeId, compact = false }: { items: Expen
                   <span className="flex flex-wrap gap-1.5">
                     {cancelled ? <span className="t-label inline-flex h-6 items-center rounded-full bg-neutral-st-bg px-2.5 text-neutral-st">Cancelled</span> : <VerdictBadge verdict={e.verdict.code} />}
                     {showApproval ? <ApprovalStatusBadge state={e.approval.state} /> : null}
+                    {showSettlement ? <SettlementStatusBadge state={e.settlement.state} overdue={e.settlement.overdue} dueSoon={e.settlement.dueSoon} /> : null}
                   </span>
                 </span>
               </span>
             </Link>
-          </li>
         );
       })}
-    </ul>
+    </LiveList>
   );
 }
