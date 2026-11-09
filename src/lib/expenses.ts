@@ -9,8 +9,9 @@ import { log } from "@/lib/log";
 import { EngineValidationError, evaluate, type EngineResult } from "@/lib/rules-engine";
 import { initialApprovalState } from "@/lib/state/machines";
 import { transition } from "@/lib/state/transition";
+import { findUsableTokensFor, revokeTokensInTx } from "@/lib/links/tokens";
 import type { ExpenseCreate, ExpensePatch, PreflightInput } from "@/schemas";
-import type { ExpenseDoc, FamilyDoc, Role, RuleVersionDoc } from "@/types/firestore";
+import type { DisputeDoc, ExpenseDoc, FamilyDoc, ReceiptDoc, Role, RuleVersionDoc } from "@/types/firestore";
 import { dateFromIso, eventView, expenseView, isoFromTs } from "./expense-view";
 
 // Expenses and preflight (Section A.5.3, A.6.1). The verdict comes only from the rules engine.
@@ -29,7 +30,7 @@ function other(role: Role): Role {
   return role === "owner" ? "coparent" : "owner";
 }
 
-async function loadRuleVersion(id: string | undefined): Promise<(RuleVersionDoc & { id: string }) | null> {
+export async function loadRuleVersion(id: string | undefined): Promise<(RuleVersionDoc & { id: string }) | null> {
   if (!id) return null;
   const snap = await db().collection("ruleVersions").doc(id).get();
   return snap.exists ? { ...(snap.data() as RuleVersionDoc), id: snap.id } : null;
@@ -317,7 +318,23 @@ export async function patchExpense(ctx: FamilyContext, id: string, patch: Expens
 /** POST /api/expenses/:id/cancel (settlement CANCEL_EXPENSE). */
 export async function cancelExpense(ctx: FamilyContext, id: string, meta: Meta = {}) {
   await loadFamilyExpense(ctx, id, meta.requestId);
-  await transition({ expenseId: id, machine: "settlement", event: "CANCEL_EXPENSE", actor: actorOf(ctx), requestId: meta.requestId, ip: meta.ip, userAgent: meta.userAgent });
+  // Open approval and payment links stop working in the same transaction (E.6.2 "revoke tokens").
+  let stale: string[] = [];
+  await transition({
+    expenseId: id,
+    machine: "settlement",
+    event: "CANCEL_EXPENSE",
+    actor: actorOf(ctx),
+    requestId: meta.requestId,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    loadFacts: async (tx, current) => {
+      const paths = [`expenses/${id}`, ...(current.approval.currentRequestId ? [`approvals/${current.approval.currentRequestId}`] : [])];
+      stale = await findUsableTokensFor(tx, ctx.familyId, paths);
+      return {};
+    },
+    extraWrites: (tx) => revokeTokensInTx(tx, stale),
+  });
   return getExpense(ctx, id, meta.requestId);
 }
 
@@ -354,13 +371,26 @@ export async function recomputeForRules(familyId: string, ruleVersionId: string,
 /** GET /api/expenses/:id with the timeline. */
 export async function getExpense(ctx: FamilyContext, id: string, requestId?: string) {
   const e = await loadFamilyExpense(ctx, id, requestId);
-  const [rv, events] = await Promise.all([loadRuleVersion(e.ruleVersionId), expensesCol().doc(id).collection("events").orderBy("at").limit(200).get()]);
+  const [rv, events, receiptSnap, disputeSnap] = await Promise.all([
+    loadRuleVersion(e.ruleVersionId),
+    expensesCol().doc(id).collection("events").orderBy("at").limit(200).get(),
+    e.receiptId ? db().collection("receipts").doc(e.receiptId).get() : Promise.resolve(null),
+    db().collection("disputes").doc(id).get(),
+  ]);
   const rule = rv?.rules.find((r) => r.id === e.verdict.ruleId) ?? null;
+  const { receiptView } = await import("@/lib/receipts/upload");
+  const { disputeView } = await import("@/lib/disputes");
+  const { dueTerms } = await import("@/lib/claims");
+  const terms = dueTerms(rule, ctx.family);
   return {
     expense: expenseView(id, e, ctx.family, now(), rule),
     events: events.docs.map((d) => eventView(d.id, d.data() as never)),
     agreementId: rv?.agreementId ?? null,
     ruleVersion: rv ? { id: rv.id, version: rv.version, status: rv.status } : null,
+    receipt: receiptSnap?.exists ? receiptView(receiptSnap.id, receiptSnap.data() as ReceiptDoc) : null,
+    dispute: disputeSnap.exists ? disputeView(disputeSnap.data() as DisputeDoc) : null,
+    dueTerms: { days: terms.days, clause: terms.clause, source: terms.source, previewDueAt: new Date(now().getTime() + terms.days * DAY_MS).toISOString() },
+    me: actorOf(ctx).kind,
   };
 }
 export type ExpenseDetail = Awaited<ReturnType<typeof getExpense>>;

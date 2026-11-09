@@ -60,6 +60,8 @@ export type GenerateArgs<S extends z.ZodType> = {
   label: "extraction" | "quick_add" | "receipt";
   system: string;
   prompt: string;
+  /** A file sent with the prompt (receipt image or PDF), base64 inline data. */
+  inline?: { mimeType: string; data: string };
   jsonSchema: unknown;
   schema: S;
   requestId?: string;
@@ -77,7 +79,7 @@ export async function generateJson<S extends z.ZodType>(args: GenerateArgs<S>): 
     try {
       const res = await ai.models.generateContent({
         model,
-        contents: [{ role: "user", parts: [{ text: args.prompt }] }],
+        contents: [{ role: "user", parts: [...(args.inline ? [{ inlineData: args.inline }] : []), { text: args.prompt }] }],
         config: {
           systemInstruction: args.system,
           temperature: 0,

@@ -109,3 +109,31 @@ export const aiQuickAddJsonSchema = {
     alreadyPurchased: { ...bool, description: "true if the text says it was already bought (past tense)" },
   },
 } as const;
+
+// Receipt reading (Section I.2 step 8). The model reads; a parent always confirms before matching.
+const dollars = z.string().max(20);
+export const aiReceiptSchema = z.object({
+  readable: z.boolean(),
+  merchant: z.string().max(120).nullable().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  totalDollars: dollars.nullable().optional(),
+  lineItems: z.array(z.object({ label: z.string().min(1).max(120), amountDollars: dollars })).max(40).nullable().optional(),
+  confidence: z.number().min(0).max(1),
+});
+export type AiReceipt = z.infer<typeof aiReceiptSchema>;
+
+export const aiReceiptJsonSchema = {
+  type: "object",
+  properties: {
+    readable: { ...bool, description: "false if this is not a receipt or the total cannot be read" },
+    merchant: { ...str, description: "Store or business name as printed" },
+    date: { ...str, description: "Purchase date as YYYY-MM-DD. Omit if not printed" },
+    totalDollars: { ...str, description: "Final total paid, digits only, e.g. '350.00'. Omit if unclear" },
+    lineItems: {
+      type: "array",
+      items: { type: "object", properties: { label: str, amountDollars: str }, required: ["label", "amountDollars"] },
+    },
+    confidence: { ...num, description: "0 to 1: how sure you are about merchant, date and total" },
+  },
+  required: ["readable", "confidence"],
+} as const;

@@ -9,6 +9,9 @@ import { log } from "@/lib/log";
 import { dedupeKey, filterNewNotifications, writeNotifications } from "@/lib/notifications";
 import type { FamilyDoc, LinkPurpose, LinkTokenDoc, RuleVersionDoc } from "@/types/firestore";
 import { mergeAck } from "@/lib/rule-versions";
+import { approvalLinkSummary, type ApprovalLinkSummary } from "@/lib/approvals";
+import type { SessionUser } from "@/lib/auth/session";
+import { paymentLinkSummary, type PaymentLinkSummary } from "@/lib/claims";
 import { issueOtp, verifyOtp } from "./otp";
 import { createLinkSession } from "./session";
 import { assertAction, maskEmail, resolveLinkHash, resolveLinkToken } from "./tokens";
@@ -46,10 +49,21 @@ export type InviteSummary = {
   paypal: { connected: boolean; method: string | null; email: string | null; verifiedAccount: boolean | null } | null;
 };
 
-/** GET /api/links/:token. 410 if the link is expired, used or revoked. */
-export async function getLinkSummary(token: string, linkSession: { tokenHash: string; expiresAt: number } | null): Promise<InviteSummary> {
-  const { tokenHash, link } = await resolveLinkToken(token);
-  if (link.purpose !== "invite") throw new AppError("NOT_FOUND", "This link type is not available yet.");
+export type LinkSummary = InviteSummary | ApprovalLinkSummary | PaymentLinkSummary;
+
+/**
+ * GET /api/links/:token. 410 if the link is expired or revoked (LK-7). A used invite is 410 too;
+ * a used approval link stays readable and shows the decision (read-only, AP-6).
+ */
+export async function getLinkSummary(token: string, linkSession: { tokenHash: string; expiresAt: number } | null, user: SessionUser | null = null): Promise<LinkSummary> {
+  const { tokenHash, link } = await resolveLinkToken(token, { allowUsed: true });
+  if (link.purpose === "approval") return approvalLinkSummary(tokenHash, link, { linkSession, user });
+  if (link.purpose === "payment") return paymentLinkSummary(tokenHash, link, { linkSession, user });
+  if (link.usedAt) throw new AppError("LINK_GONE", "This link has already been used.", { details: { reason: "used", purpose: link.purpose } });
+  return inviteSummary(tokenHash, link, linkSession);
+}
+
+async function inviteSummary(tokenHash: string, link: LinkTokenDoc, linkSession: { tokenHash: string; expiresAt: number } | null): Promise<InviteSummary> {
   const family = await loadFamily(link.familyId);
   const rv = await loadActiveRules(family);
   const hasSession = linkSession?.tokenHash === tokenHash;

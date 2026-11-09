@@ -39,10 +39,11 @@ export type NewLink = {
 };
 
 /** Creates the token doc inside the given transaction (create() fails if the hash exists). */
-export function createLinkTokenInTx(tx: Transaction, input: NewLink): { token: string; tokenHash: string; expiresAt: Date } {
+export function createLinkTokenInTx(tx: Transaction, input: NewLink, opts: { expiresAt?: Date } = {}): { token: string; tokenHash: string; expiresAt: Date } {
   const token = newLinkToken();
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(now().getTime() + LINK_TTL_DAYS[input.purpose] * DAY_MS);
+  // An approval link lives exactly as long as its request (same instant as approval.expiresAt).
+  const expiresAt = opts.expiresAt ?? new Date(now().getTime() + LINK_TTL_DAYS[input.purpose] * DAY_MS);
   tx.create(linkTokensCol().doc(tokenHash), {
     ...input,
     recipientEmail: input.recipientEmail.toLowerCase(),
@@ -91,6 +92,14 @@ export function assertAction(link: LinkTokenDoc, action: string) {
 export async function findActiveTokens(tx: Transaction, familyId: string, purpose: LinkPurpose): Promise<string[]> {
   const q = linkTokensCol().where("familyId", "==", familyId).where("purpose", "==", purpose).where("revokedAt", "==", null);
   const snaps = await tx.get(q);
+  const t = now();
+  return snaps.docs.filter((d) => linkStatus(d.data() as LinkTokenDoc, t) === "usable").map((d) => d.id);
+}
+
+/** Usable tokens pointing at these resources (read phase). Used to revoke links when an expense closes. */
+export async function findUsableTokensFor(tx: Transaction, familyId: string, resourcePaths: string[]): Promise<string[]> {
+  if (resourcePaths.length === 0) return [];
+  const snaps = await tx.get(linkTokensCol().where("familyId", "==", familyId).where("resourcePath", "in", resourcePaths.slice(0, 30)).where("revokedAt", "==", null));
   const t = now();
   return snaps.docs.filter((d) => linkStatus(d.data() as LinkTokenDoc, t) === "usable").map((d) => d.id);
 }
