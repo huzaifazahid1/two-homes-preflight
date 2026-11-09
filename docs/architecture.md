@@ -64,5 +64,5 @@ sequenceDiagram
   P-->>U: /connect/paypal/callback?code&state
   U->>A: POST /api/paypal/connect/callback
   A->>P: code -> token (Basic auth), userinfo
-  A->>A: save payerId, email, verified; discard token
+  A->>A: save payerId, email, verified discard token
 ```
