@@ -8,6 +8,7 @@ import { db, FieldValue, Timestamp } from "@/lib/firebase/admin";
 import { log } from "@/lib/log";
 import { dedupeKey, filterNewNotifications, writeNotifications } from "@/lib/notifications";
 import type { FamilyDoc, LinkPurpose, LinkTokenDoc, RuleVersionDoc } from "@/types/firestore";
+import { mergeAck } from "@/lib/rule-versions";
 import { issueOtp, verifyOtp } from "./otp";
 import { createLinkSession } from "./session";
 import { assertAction, maskEmail, resolveLinkHash, resolveLinkToken } from "./tokens";
@@ -38,7 +39,7 @@ export type InviteSummary = {
   ownerName: string;
   coParentName: string;
   childNames: string[];
-  rules: { id: string; category: string; label: string; owedPct: number; approval: RuleVersionDoc["rules"][number]["approval"] | null; quote: string; page: number }[];
+  rules: { id: string; category: string; label: string; owedPct: number; approval: RuleVersionDoc["rules"][number]["approval"] | null; quote: string; page: number; ack: "agree" | "disagree" | null }[];
   sentTo: string;
   expiresAt: string;
   session: { active: boolean; expiresAt: string | null };
@@ -60,7 +61,7 @@ export async function getLinkSummary(token: string, linkSession: { tokenHash: st
     childNames: family.children.map((c) => c.firstName),
     rules: (rv?.rules ?? [])
       .filter((r) => r.reviewState === "CONFIRMED" || r.reviewState === "EDITED")
-      .map((r) => ({ id: r.id, category: r.category, label: r.label, owedPct: r.owedPct, approval: r.approval ?? null, quote: r.quote, page: r.page })),
+      .map((r) => ({ id: r.id, category: r.category, label: r.label, owedPct: r.owedPct, approval: r.approval ?? null, quote: r.quote, page: r.page, ack: rv?.coParentAck?.perRule[r.id] ?? null })),
     sentTo: maskEmail(link.recipientEmail),
     expiresAt: link.expiresAt.toDate().toISOString(),
     session: { active: hasSession, expiresAt: hasSession ? new Date(linkSession!.expiresAt).toISOString() : null },
@@ -96,12 +97,14 @@ export async function verifyLinkOtp(token: string, code: string): Promise<{ cook
   return { cookie: s.value, expiresAt: s.expiresAt };
 }
 
+type AckResult = { familyId: string; ruleVersionId: string | null; changed: string[]; disagreed: number };
+
 /** POST /api/links/:token/accept. Requires the link session for this token (checked by the caller). */
 export async function acceptInvite(
   tokenHash: string,
   input: { perRule?: Record<string, "agree" | "disagree"> },
   meta: { ip?: string | null; userAgent?: string | null },
-): Promise<{ accepted: true; disagreed: number }> {
+): Promise<{ accepted: true; disagreed: number } & { ack: AckResult }> {
   return db().runTransaction(async (tx) => {
     const { link } = await resolveLinkHash(tokenHash, { tx });
     if (link.purpose !== "invite") throw new AppError("FORBIDDEN", "This link does not allow that action.");
@@ -115,10 +118,7 @@ export async function acceptInvite(
 
     const rvRef = family.activeRuleVersionId ? db().collection("ruleVersions").doc(family.activeRuleVersionId) : null;
     const rv = rvRef ? ((await tx.get(rvRef)).data() as RuleVersionDoc | undefined) : undefined;
-    const ruleIds = (rv?.rules ?? []).filter((r) => r.reviewState === "CONFIRMED" || r.reviewState === "EDITED").map((r) => r.id);
-    const perRule: Record<string, "agree" | "disagree"> = {};
-    for (const id of ruleIds) perRule[id] = input.perRule?.[id] ?? "agree";
-    const disagreed = Object.values(perRule).filter((v) => v === "disagree").length;
+    const { perRule, changed, disagreed } = rv ? mergeAck(rv, input.perRule, true) : { perRule: {}, changed: [], disagreed: 0 };
 
     const notif = {
       dedupeKey: dedupeKey("invite_accepted", link.familyId, tokenHash.slice(0, 16)),
@@ -128,7 +128,7 @@ export async function acceptInvite(
       type: "invite_accepted" as const,
       title: `${family.coParent.name} accepted your invite`,
       body: disagreed > 0 ? `They disagreed with ${disagreed} rule${disagreed === 1 ? "" : "s"}. Affected expenses will need review.` : "They agreed to all the expense rules.",
-      link: "/app/settings",
+      link: disagreed > 0 ? "/app/agreement" : "/app/settings",
       sendEmail: false,
     };
     const fresh = await filterNewNotifications(tx, [notif]);
@@ -140,7 +140,27 @@ export async function acceptInvite(
     tx.update(db().collection("linkTokens").doc(tokenHash), { usedAt: t });
     auditInTx(tx, { familyId: link.familyId, actor: { kind: "coparent", tokenHash }, action: "invite.accept", target: `families/${link.familyId}`, ...meta });
     writeNotifications(tx, fresh);
-    return { accepted: true as const, disagreed };
+    return { accepted: true as const, disagreed, ack: { familyId: link.familyId, ruleVersionId: family.activeRuleVersionId ?? null, changed, disagreed } };
+  });
+}
+
+/** POST /api/links/:token/rules-ack: agree/disagree per rule before accepting (link + OTP session). */
+export async function ackRules(tokenHash: string, perRuleInput: Record<string, "agree" | "disagree">, meta: { ip?: string | null; userAgent?: string | null }): Promise<AckResult> {
+  return db().runTransaction(async (tx) => {
+    const { link } = await resolveLinkHash(tokenHash, { tx });
+    assertAction(link, "ack_rules");
+    const family = (await tx.get(db().collection("families").doc(link.familyId))).data() as FamilyDoc | undefined;
+    if (!family) throw new AppError("LINK_GONE", "This link is no longer available.");
+    if (family.coParent.email !== link.recipientEmail) throw new AppError("LINK_GONE", "This invitation was replaced.");
+    if (!family.activeRuleVersionId) throw new AppError("STATE_CONFLICT", "There are no confirmed rules to answer yet.");
+    const rvRef = db().collection("ruleVersions").doc(family.activeRuleVersionId);
+    const rv = (await tx.get(rvRef)).data() as RuleVersionDoc;
+    const unknown = Object.keys(perRuleInput).filter((id) => !rv.rules.some((r) => r.id === id && (r.reviewState === "CONFIRMED" || r.reviewState === "EDITED")));
+    if (unknown.length > 0) throw new AppError("INVALID", "One of the rules is no longer part of the agreement. Reload the page.");
+    const { perRule, changed, disagreed } = mergeAck(rv, perRuleInput, false);
+    tx.update(rvRef, { coParentAck: { at: Timestamp.fromDate(now()), perRule } });
+    auditInTx(tx, { familyId: link.familyId, actor: { kind: "coparent", tokenHash }, action: "rules.ack", target: `ruleVersions/${family.activeRuleVersionId}`, ...meta });
+    return { familyId: link.familyId, ruleVersionId: family.activeRuleVersionId, changed, disagreed };
   });
 }
 

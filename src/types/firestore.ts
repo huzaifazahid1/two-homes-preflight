@@ -114,7 +114,7 @@ export type ExpenseDoc = {
   memberUids: string[];
   createdBy: string;
   childId: string;
-  category: string;
+  category: RuleCategory;
   description: string;
   vendor?: string;
   amountCents: number;
@@ -228,10 +228,41 @@ export type SubscriptionDoc = {
   updatedAt: Ts;
 };
 
+export const RULE_CATEGORIES = [
+  "medical", "dental", "education", "school_supplies", "extracurricular", "childcare", "clothing", "travel", "other",
+] as const;
+export type RuleCategory = (typeof RULE_CATEGORIES)[number];
+
+export type QuoteMatch = "exact" | "exact_other_page" | "fuzzy" | "none";
+export type ReviewState = "PENDING" | "CONFIRMED" | "EDITED" | "REJECTED" | "NEEDS_REVIEW";
+
+/**
+ * Why a rule needs a human. Blocking issues keep the rule in NEEDS_REVIEW and disable Confirm;
+ * warnings are shown but do not block (docs/decisions.md 2.x).
+ */
+export type RuleIssue =
+  | "quote_not_found" // blocking
+  | "shares_invalid" // blocking: shares do not add up to 100
+  | "shares_non_numeric" // blocking: e.g. "proportional to income", parent must enter percentages
+  | "value_not_in_quote" // blocking: an AI value cannot be traced to its quote
+  | "conflict" // blocking: another clause covers the same category and child with different values
+  | "quote_other_page" // warning
+  | "quote_fuzzy" // warning
+  | "vague_terms"; // warning
+
+/** A value taken from another clause (e.g. a general receipt deadline), with its own verified quote. */
+export type SupportingQuote = {
+  field: "receiptDeadlineDays" | "reimburseWithinDays";
+  quote: string;
+  page: number;
+  quoteMatch: QuoteMatch;
+};
+
 export type Rule = {
   id: string;
-  category: "medical" | "dental" | "education" | "school_supplies" | "extracurricular" | "childcare" | "clothing" | "travel" | "other";
+  category: RuleCategory;
   label: string;
+  /** Share the non-buying parent owes (0-100). */
   owedPct: number;
   sharesNonNumeric?: boolean;
   approval?: { required: boolean; operator: "gt" | "gte"; thresholdCents: number };
@@ -239,11 +270,25 @@ export type Rule = {
   reimburseWithinDays?: number;
   cap?: { amountCents: number; period: "year" };
   childIds?: string[];
+  /** Child-specific rule as written in the agreement (first names); matched when childIds is absent. */
+  childNames?: string[];
   quote: string;
   page: number;
-  quoteMatch: "exact" | "exact_other_page" | "fuzzy" | "none";
+  quoteMatch: QuoteMatch;
+  supportingQuotes?: SupportingQuote[];
   vagueTerms?: string[];
-  reviewState: "PENDING" | "CONFIRMED" | "EDITED" | "REJECTED" | "NEEDS_REVIEW";
+  issues?: RuleIssue[];
+  source?: "ai" | "demo" | "manual";
+  reviewState: ReviewState;
+  /** Original AI values when a parent edited the rule. */
+  editedFrom?: Partial<Pick<Rule, "label" | "owedPct" | "approval" | "receiptDeadlineDays" | "reimburseWithinDays" | "childNames" | "quote" | "page" | "sharesNonNumeric">>;
+};
+
+export type Quoted<T> = { value: T; quote: string; page: number; quoteMatch: QuoteMatch };
+
+export type ExtractedParties = {
+  parents: Quoted<string>[];
+  children: Quoted<{ firstName: string; birthYear?: number }>[];
 };
 
 export type RuleVersionDoc = {
@@ -253,6 +298,34 @@ export type RuleVersionDoc = {
   version: number;
   status: "DRAFT" | "ACTIVE" | "SUPERSEDED";
   rules: Rule[];
+  extractedParties?: ExtractedParties;
+  /** How the draft was produced. "demo" = DEMO_MODE cached extraction (labelled in the UI). */
+  extraction?: { mode: "ai" | "demo" | "manual"; model?: string; at: Ts };
+  confirmedBy?: string;
+  confirmedAt?: Ts;
+  supersededAt?: Ts;
   coParentAck?: { at: Ts; perRule: Record<string, "agree" | "disagree"> };
   createdAt: Ts;
+  updatedAt?: Ts;
 };
+
+export type AgreementStatus = "UPLOADED" | "EXTRACTING" | "EXTRACTED" | "FAILED";
+
+export type AgreementDoc = {
+  familyId: string;
+  memberUids: string[];
+  fileName: string;
+  sha256: string;
+  pageCount: number;
+  source: "pdf" | "pasted_text";
+  status: AgreementStatus;
+  error?: string;
+  extractionRuns: number;
+  /** Latest DRAFT rule version created from this agreement. */
+  draftRuleVersionId?: string;
+  createdBy: string;
+  createdAt: Ts;
+  updatedAt?: Ts;
+};
+
+export type AgreementPageDoc = { page: number; text: string };

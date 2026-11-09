@@ -92,7 +92,7 @@ export async function meView(user: UserDoc) {
 }
 export type MeView = Awaited<ReturnType<typeof meView>>;
 
-/** Agreement (Phase 2) and the Family plan (Phase 4) are not wired yet; outside production they can be passed. */
+/** The Family plan (Phase 4) is not wired yet; outside production (or in DEMO_MODE) the plan step says so. */
 export function placeholderStepsAllowed(): boolean {
   const e = env();
   return e.NODE_ENV !== "production" || e.DEMO_MODE;
@@ -114,8 +114,7 @@ function prerequisiteError(step: OnboardingStep, user: UserDoc, family: FamilyDo
       if (!user.emailVerified) return "Verify your email address first.";
       return null;
     case "agreement":
-      if (family?.activeRuleVersionId) return null;
-      return placeholderStepsAllowed() ? null : "Upload your agreement and confirm its rules first.";
+      return family?.activeRuleVersionId ? null : "Upload your agreement and confirm its rules first.";
     case "family":
       if (!family) return "Create your family first.";
       if (family.children.length === 0) return "Add at least one child.";
