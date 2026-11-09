@@ -21,8 +21,8 @@ export const mePatchSchema = z
     theme: z.enum(["system", "light", "dark"]).optional(),
     /** Marks the current onboarding step complete; the server checks its prerequisites and advances. */
     completeStep: onboardingStepSchema.exclude(["done"]).optional(),
-    /** Plan step only. Family is wired in Phase 4. */
-    plan: z.enum(["free"]).optional(),
+    /** Plan step only. "family" finishes onboarding and opens Billing to subscribe. */
+    plan: z.enum(["free", "family"]).optional(),
   })
   .strict();
 export type MePatch = z.infer<typeof mePatchSchema>;

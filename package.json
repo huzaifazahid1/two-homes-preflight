@@ -13,10 +13,11 @@
     "test:integration": "firebase emulators:exec --only firestore,auth --project demo-two-homes \"vitest run --project integration\"",
     "test:e2e": "playwright test",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
-    "seed": "tsx --env-file=.env.local scripts/seed-demo.ts",
-    "reset": "tsx --env-file=.env.local scripts/reset-demo.ts",
+    "seed": "tsx --env-file=.env.local --conditions=react-server scripts/seed-demo.ts",
+    "reset": "tsx --env-file=.env.local --conditions=react-server scripts/reset-demo.ts",
     "invariants": "tsx --env-file=.env.local --conditions=react-server scripts/check-invariants.ts",
-    "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts"
+    "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts",
+    "paypal:setup-plans": "tsx --env-file=.env.local --conditions=react-server scripts/setup-paypal-plans.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
