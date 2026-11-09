@@ -165,7 +165,22 @@ function Verify({ s, token, onVerified }: { s: InviteSummary; token: string; onV
 }
 
 function Act({ s, token, paypalNotice, onAccepted, onChanged }: { s: InviteSummary; token: string; paypalNotice: string | null; onAccepted: () => void; onChanged: () => Promise<void> }) {
-  const [perRule, setPerRule] = useState<Record<string, "agree" | "disagree">>(() => Object.fromEntries(s.rules.map((r) => [r.id, "agree" as const])));
+  const [perRule, setPerRule] = useState<Record<string, "agree" | "disagree">>(() => Object.fromEntries(s.rules.map((r) => [r.id, r.ack ?? ("agree" as const)])));
+  const [ackStatus, setAckStatus] = useState<{ ruleId: string; state: "saving" | "saved" | "error"; message?: string } | null>(null);
+
+  // Each answer is saved as soon as it is chosen (POST /rules-ack); accepting sends them all again.
+  async function answer(ruleId: string, value: "agree" | "disagree") {
+    const previous = perRule[ruleId];
+    setPerRule((p) => ({ ...p, [ruleId]: value }));
+    setAckStatus({ ruleId, state: "saving" });
+    try {
+      await api(`/api/links/${token}/rules-ack`, { method: "POST", body: { perRule: { [ruleId]: value } }, redirectOn401: false });
+      setAckStatus({ ruleId, state: "saved" });
+    } catch (e) {
+      setPerRule((p) => ({ ...p, [ruleId]: previous }));
+      setAckStatus({ ruleId, state: "error", message: errorMessage(e) });
+    }
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pp = s.paypal;
@@ -188,6 +203,9 @@ function Act({ s, token, paypalNotice, onAccepted, onChanged }: { s: InviteSumma
         <section aria-labelledby="ack-h" className="space-y-3">
           <h2 id="ack-h" className="t-h3">Do you agree with each rule?</h2>
           <p className="t-small text-muted-foreground">If you disagree with a rule, expenses under it are marked for review instead of being checked automatically.</p>
+          <p className="t-small text-muted-foreground" aria-live="polite">
+            {ackStatus?.state === "saving" ? "Saving your answer…" : ackStatus?.state === "saved" ? "Answer saved." : ackStatus?.state === "error" ? ackStatus.message : ""}
+          </p>
           {s.rules.map((r) => (
             <fieldset key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-surface px-4 py-2">
               <legend className="sr-only">{r.label}</legend>
@@ -195,7 +213,7 @@ function Act({ s, token, paypalNotice, onAccepted, onChanged }: { s: InviteSumma
               <div className="flex gap-1">
                 {(["agree", "disagree"] as const).map((v) => (
                   <label key={v} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-3 text-sm ${perRule[r.id] === v ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground"}`}>
-                    <input type="radio" name={`rule-${r.id}`} value={v} checked={perRule[r.id] === v} onChange={() => setPerRule((p) => ({ ...p, [r.id]: v }))} className="accent-[var(--primary)]" />
+                    <input type="radio" name={`rule-${r.id}`} value={v} checked={perRule[r.id] === v} onChange={() => void answer(r.id, v)} className="accent-[var(--primary)]" />
                     {v === "agree" ? "Agree" : "Disagree"}
                   </label>
                 ))}

@@ -76,6 +76,11 @@ export async function requireFamily(user: SessionUser): Promise<FamilyContext> {
   return { user, userDoc, familyId: userDoc.familyId, family };
 }
 
+/** The audit/timeline actor for a signed-in family member. */
+export function actorOf(ctx: FamilyContext): { kind: "owner" | "coparent"; uid: string } {
+  return { kind: ctx.family.ownerUid === ctx.user.uid ? "owner" : "coparent", uid: ctx.user.uid };
+}
+
 export async function requireOwner(user: SessionUser): Promise<FamilyContext> {
   const ctx = await requireFamily(user);
   if (ctx.family.ownerUid !== user.uid) throw new AppError("FORBIDDEN", "Only the family owner can do this.");

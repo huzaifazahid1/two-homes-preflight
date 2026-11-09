@@ -11,8 +11,8 @@ Demo video: _coming in Phase 4_
 | Phase | Status | Features |
 | --- | --- | --- |
 | 0. Verify setup | Done | Toolchain verified, test and script wiring, project docs |
-| 1. Foundation | Done (awaiting review) | Design system, email/password + Google sign-in, onboarding wizard, family and children, co-parent invite with hashed link tokens and email one-time codes, Resend email + dev outbox, live notification bell, Connect PayPal (Log in with PayPal + email fallback), approval/settlement state machines with `transition()` |
-| 2. Agreement and preflight | Not started | AI rule extraction, quote verification, rule review, rules engine, expenses, quick add |
+| 1. Foundation | Done | Design system, email/password + Google sign-in, onboarding wizard, family and children, co-parent invite with hashed link tokens and email one-time codes, Resend email + dev outbox, live notification bell, Connect PayPal (Log in with PayPal + email fallback), approval/settlement state machines with `transition()` |
+| 2. Agreement and preflight | Done (awaiting review) | Agreement upload (PDF or pasted text, scanned-PDF detection), Gemini rule extraction with verbatim quotes, quote verification (exact, other page, fuzzy >= 0.9, none), value-in-quote check against prompt injection, rule review (confirm, edit with original kept, reject, manual entry), source view with the quote highlighted, rule versions (DRAFT, ACTIVE, SUPERSEDED in one transaction), deterministic rules engine with clause-cited verdicts, expenses (create, edit, cancel, list, detail with timeline), live preflight, AI quick add, duplicate check, co-parent per-rule agree/disagree, family prefill from the agreement, labelled demo mode |
 | 3. Approvals and claims | Not started | Approvals, receipts, claims, overdue, manual resolution, real-time UI |
 | 4. Money, billing, launch | Not started | PayPal capture + payout, webhooks, subscriptions, ledger, hardening |
 
@@ -66,12 +66,15 @@ Emulators are used only by automated tests (see Testing). ngrok setup for PayPal
 
 ## 4. API endpoints
 
+Phase 2 adds agreements (`/api/agreements/*`), rule review and activation (`/api/rule-versions/*`), co-parent answers (`/api/links/:token/rules-ack`), quick add (`/api/ai/expense-parse`) and expenses with preflight (`/api/expenses/*`).
+
 Phase 1 endpoints: session (`/api/auth/session`), profile and onboarding (`/api/me`), family, children and invites (`/api/family/*`), links and one-time codes (`/api/links/:token/*`), Connect PayPal (`/api/paypal/connect/*`), notifications (`/api/notifications/read`). Full reference with auth and error codes: [`docs/api.md`](docs/api.md).
 
 ## 5. Integrations
 
 - **PayPal (sandbox):** pass-through model. The paying parent pays the platform (Orders v2) and the platform pays the receiving parent (Payouts). Family plan via Subscriptions. Log in with PayPal to connect the receiving account. Webhooks are verified before processing. Built with the PayPal Context Plugin (APIMatic).
-- **Gemini:** extracts agreement rules with verbatim quotes and reads receipts. Quotes are verified against the PDF text, and a person confirms every rule.
+- **Gemini (`@google/genai`):** extracts agreement rules and the named parents and children (structured JSON output, temperature 0, low thinking level), and fills the expense form from a short note. Every quote is verified against the stored page text; every percentage, dollar amount and day count must appear in its quote; a person confirms every rule. AI never gives a verdict. One retry, then a real error with manual entry. `npm run ai:check-extraction` runs the real model three times on the fixture agreement.
+- **Demo mode:** with `DEMO_MODE=true`, if Gemini fails on the fixture agreement, the recorded extraction in `fixtures/ai/` is used and labelled "Demo mode: cached extraction". It never applies to other documents.
 - **Cloudinary:** private receipt storage with short-lived delivery URLs.
 - **Resend:** transactional email from `mail.huzaifalabs.site`; a dev outbox is used in development and tests.
 - **AG Grid Community:** ledger and expense tables.
@@ -88,20 +91,23 @@ _Details are filled in as each integration is built._
 | `npm run test:e2e` | Playwright, phone (375 px) and desktop (1440 px) projects. Starts the emulators and `scripts/e2e-server.mjs` (production build in `.next-e2e`, port 3100, `.env.test` values, dev outbox). `E2E_SKIP_BUILD=1` reuses the last build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run ai:check-extraction` | Real Gemini (key from `.env.local`) on the synthetic fixture, three runs; add `-- --record` to save the answer to `fixtures/ai/recorded-extraction.json` |
 | `npm run invariants` | Invariant checker (Section E.7; added in a later phase) |
 
-Tests read only `.env.test` and never touch the real Firebase project. Integration tests mock PayPal and Resend with a local stub server (`tests/helpers/stub-server.ts`). If `next build` runs out of memory, use `$env:NODE_OPTIONS="--max-old-space-size=3072"` and close other apps.
+Tests read only `.env.test` and never touch the real Firebase project. Integration tests mock PayPal, Resend and Gemini with a local stub server (`tests/helpers/stub-server.ts`). If `next build` runs out of memory, use `$env:NODE_OPTIONS="--max-old-space-size=3072"` and close other apps.
 
 ## 7. Demo
 
-Sandbox test credentials and `/dev/demo` usage are added in a later phase. In local development emails go to the `devOutbox` Firestore collection unless `EMAIL_TRANSPORT=resend`. Until Phase 2, the agreement step can be passed only outside production or with `DEMO_MODE=true`. `npm run seed` and `npm run reset` load and clear the synthetic demo family (scripts added in a later phase).
+Sandbox test credentials and `/dev/demo` usage are added in a later phase. In local development emails go to the `devOutbox` Firestore collection unless `EMAIL_TRANSPORT=resend`. The synthetic agreement is `fixtures/agreement/demo-agreement.md` (paste it as-is, or make the PDF as described in `fixtures/agreement/README.md`). With it, a $350 soccer camp is Needs approval citing page 4 (the other parent owes $140) and a $120 dentist visit is Eligible. `npm run seed` and `npm run reset` load and clear the synthetic demo family (scripts added in a later phase).
 
 ## 8. Known limitations and open items
 
 - Pass-through settlement (collecting from one parent and paying another) is money transmission in most US states. A real launch needs PayPal approval for this model and legal review. This build runs in the PayPal sandbox only.
 - The app does not give legal advice; it shows what the agreement text says, with quotes.
 - Demo data is synthetic.
-- Agreement upload, expenses and payments are not built yet (Phases 2 to 4); those screens show honest empty states.
+- Approval links, receipts and payments are not built yet (Phases 3 and 4); expense pages say so instead of showing fake buttons.
+- `gemini-3.8-flash` timed out or was overloaded on every call on 2026-11-09; `gemini-2.5-flash` passed the three-run check. The model is set by `GEMINI_MODEL`.
+- Once an expense needs approval it stays that way when its amount is lowered (the state machine has no way back).
 
 Open [Confirm] items (defaults in use):
 
@@ -119,4 +125,5 @@ Open [Confirm] items (defaults in use):
 ## 9. Changelog
 
 - **Phase 0 (2026-11-09):** Verified toolchain (Node 24, Java 21, Firebase CLI + emulators), build, typecheck and lint. Added npm scripts, Vitest and Playwright configs, and project docs. Allowed `.env.test` to be committed.
+- **Phase 2 (2026-11-09):** Agreement upload and extraction, quote verification, rule review and versions, rules engine, expenses with live preflight and timeline, quick add, co-parent rule answers, family prefill, demo mode, fixtures. UI: verdict panel, source sheet, split bar, timeline, empty states, full-screen forms on phones, `N` shortcut. 149 unit, 120 integration and 4 E2E runs (2 journeys on phone and desktop).
 - **Phase 1 (2026-11-09):** Foundation: core lib and `route()` wrapper, state machines and `transition()`, session auth, onboarding wizard, family and invites, link tokens + OTP, Resend + outbox, notifications bell, Connect PayPal, Firestore rules and indexes, design system and app shell. 95 unit, 74 integration and 2 E2E tests.

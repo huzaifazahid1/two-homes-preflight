@@ -14,6 +14,8 @@ const env = {
   DEMO_MODE: "true",
   DEV_SECRET: "e2e-dev-secret-0123456789abcdef0123456789",
   RESEND_API_KEY: "",
+  // No real AI in E2E: extraction falls back to the labelled demo-mode cache (DEMO_MODE=true).
+  GEMINI_API_KEY: "",
   NEXT_DIST_DIR: ".next-e2e",
   NEXT_TELEMETRY_DISABLED: "1",
 };

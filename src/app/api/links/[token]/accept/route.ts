@@ -1,4 +1,5 @@
 import { requestMeta } from "@/lib/audit";
+import { recomputeForRules } from "@/lib/expenses";
 import { acceptInvite } from "@/lib/links/actions";
 import { hashToken, isWellFormedToken } from "@/lib/links/tokens";
 import { AppError } from "@/lib/errors";
@@ -11,6 +12,8 @@ export const POST = route(
     if (!isWellFormedToken(ctx.params.token)) throw new AppError("NOT_FOUND", "This link is not valid.");
     const tokenHash = hashToken(ctx.params.token);
     requireLinkSession(ctx, tokenHash);
-    return acceptInvite(tokenHash, ctx.body, requestMeta(ctx.req));
+    const { ack, ...result } = await acceptInvite(tokenHash, ctx.body, requestMeta(ctx.req));
+    if (ack.ruleVersionId) await recomputeForRules(ack.familyId, ack.ruleVersionId, ack.changed, ctx.requestId);
+    return result;
   },
 );

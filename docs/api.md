@@ -34,3 +34,18 @@ Auth column: **user** = session cookie `thp_session` (checkRevoked). **link** = 
 | POST | `/api/paypal/connect/email` | user or link | Fallback `{ for, email, confirmEmail, token? }` (emails must match) | 1 |
 | DELETE | `/api/paypal/connect` | user | Disconnect your own PayPal (409 while a payout is processing) | 1 |
 | POST | `/api/notifications/read` | user | `{ ids }`. Marks your own notifications read | 1 |
+| POST | `/api/links/:token/rules-ack` | link + OTP | `{ perRule: { [ruleId]: "agree" \| "disagree" } }`. Saves the co-parent's answers on the active rules before acceptance; changed answers re-check affected expenses (AG-12). Returns `{ saved, disagreed, recomputed }`. 410 once the invite is used | 2 |
+| POST | `/api/agreements` | owner | Multipart field `file` (PDF, <= 10 MB, <= 50 pages, `%PDF-` magic bytes) or JSON `{ text, fileName? }`. Stores page text only. 400 `details.reason = "scanned"` for PDFs without text; 402 for a second agreement on Free. 20/hour | 2 |
+| GET | `/api/agreements/:id` | owner | `{ agreement, draft, runsLeft }` (`runsLeft` null on Family) | 2 |
+| POST | `/api/agreements/:id/extract` | owner | `{ mode?: "ai" \| "manual" }`. AI: Gemini extraction, quote verification, DRAFT version (counts toward the plan, AG-11 402). Gemini failure: 502 `details.manualEntry` (or labelled demo mode when `DEMO_MODE=true`). Manual: empty DRAFT, no AI. 409 while running. 10/hour | 2 |
+| GET | `/api/agreements/:id/pages/:n` | family member | `{ page: { page, text, pageCount } }` for the source view | 2 |
+| PATCH | `/api/rule-versions/:id/rules/:ruleId` | owner | `{ action: "confirm" \| "reject" \| "undo" }` or `{ action: "edit", changes }` (original kept in `editedFrom`; a changed quote must be in the text). Confirm is 409 while the rule has a blocking issue. DRAFT only (409 otherwise, AG-10) | 2 |
+| POST | `/api/rule-versions/:id/rules` | owner | Manual rule `{ category, label, owedPct, approval?, receiptDeadlineDays?, reimburseWithinDays?, childNames?, quote, page }`; 400 if the quote is not in the agreement | 2 |
+| POST | `/api/rule-versions/:id/activate` | owner | Every rule decided and at least one kept. DRAFT to ACTIVE, previous ACTIVE to SUPERSEDED, family pointer moved, all in one transaction (AG-9). 402 for an amendment on Free | 2 |
+| POST | `/api/ai/expense-parse` | family member | `{ text }`. Returns `{ fields: { childId, category, amountCents, date, vendor, description, mode } }`; values the note does not contain are null. 30/hour (429); 502 with a request id when AI fails | 2 |
+| POST | `/api/expenses/preflight` | family member | Expense fields. Returns `{ preflight: { verdict, explanation, citations, shares, approval, rule, owedByRole } }`. Writes nothing | 2 |
+| POST | `/api/expenses` | family member | `{ childId, category, description, vendor?, amountCents, currency: "USD", mode, date?, paidByRole, confirmDuplicate? }`. 400 for amount <= 0, > $100,000, non-integer cents, non-USD, future purchase date. 409 `DUPLICATE` with `details.possibleDuplicateOf` for the same child, description and amount within 24 h unless `confirmDuplicate` | 2 |
+| GET | `/api/expenses` | family member | Query `{ limit?, before? }`. Newest first | 2 |
+| GET | `/api/expenses/:id` | family member | `{ expense, events, agreementId, ruleVersion }` | 2 |
+| PATCH | `/api/expenses/:id` | family member | Changed fields + `version` (409 if stale). Re-checks with the pinned rule version; raising above an approved amount or a new approval need goes through `transition()`. 409 while a request is open, after a receipt or after cancel | 2 |
+| POST | `/api/expenses/:id/cancel` | family member | Settlement `CANCEL_EXPENSE`; repeat is a no-op | 2 |

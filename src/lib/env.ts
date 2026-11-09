@@ -35,6 +35,9 @@ const serverSchema = z
 
     GEMINI_API_KEY: z.string().optional(),
     GEMINI_MODEL: z.string().optional(),
+    /** Tests only: points the Gemini SDK at a local stub server. */
+    GEMINI_BASE_URL: z.url().optional(),
+    GEMINI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(180_000).default(90_000),
 
     PAYPAL_ENV: z.enum(["sandbox"]).default("sandbox"),
     PAYPAL_API_BASE: z.url().default("https://api-m.sandbox.paypal.com"),

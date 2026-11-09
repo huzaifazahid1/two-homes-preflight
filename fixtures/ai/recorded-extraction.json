@@ -1,0 +1,122 @@
+{
+  "rules": [
+    {
+      "category": "medical",
+      "label": "Uninsured medical expenses",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "Uninsured medical, dental and vision expenses for the Child shall be shared equally (50/50) by the Parents.",
+      "page": 3
+    },
+    {
+      "category": "dental",
+      "label": "Uninsured dental expenses",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "Uninsured medical, dental and vision expenses for the Child shall be shared equally (50/50) by the Parents.",
+      "page": 3
+    },
+    {
+      "category": "extracurricular",
+      "label": "Extracurricular activity costs",
+      "payingParentPct": 60,
+      "otherParentPct": 40,
+      "approvalRequired": true,
+      "approvalOperator": "gt",
+      "approvalThresholdDollars": "200",
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "Extracurricular activity costs, including sports, camps, music and art lessons, are shared 60/40, with the Purchasing Parent paying sixty percent (60%) and the Other Parent reimbursing forty percent (40%), and any single extracurricular expense above $200 requires the Other Parent's written approval before the purchase.",
+      "page": 4
+    },
+    {
+      "category": "school_supplies",
+      "label": "School supplies",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "School supplies, textbooks and school field trip fees shall be shared equally (50/50) by the Parents.",
+      "page": 5
+    },
+    {
+      "category": "education",
+      "label": "Textbooks",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "School supplies, textbooks and school field trip fees shall be shared equally (50/50) by the Parents.",
+      "page": 5
+    },
+    {
+      "category": "education",
+      "label": "School field trip fees",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "receiptDeadlineDays": 30,
+      "receiptDeadlineQuote": "The Purchasing Parent shall give the Other Parent a copy of the receipt within thirty (30) days of the purchase.",
+      "receiptDeadlinePage": 2,
+      "reimburseWithinDays": 30,
+      "reimburseQuote": "The Other Parent shall reimburse the Purchasing Parent for their share within thirty (30) days of receiving the receipt.",
+      "reimbursePage": 2,
+      "quote": "School supplies, textbooks and school field trip fees shall be shared equally (50/50) by the Parents.",
+      "page": 5
+    },
+    {
+      "category": "clothing",
+      "label": "Reasonable clothing expenses",
+      "payingParentPct": 50,
+      "otherParentPct": 50,
+      "vagueTerms": [
+        "reasonable"
+      ],
+      "quote": "The Parents shall share reasonable clothing expenses for the Child equally.",
+      "page": 5
+    }
+  ],
+  "parents": [
+    {
+      "name": "Alex Rivera",
+      "quote": "Alex Rivera (\"Parent A\")",
+      "page": 1
+    },
+    {
+      "name": "Sara Rivera",
+      "quote": "Sara Rivera (\"Parent B\")",
+      "page": 1
+    }
+  ],
+  "children": [
+    {
+      "firstName": "Mia",
+      "birthYear": 2016,
+      "quote": "Mia Rivera, born in 2016 (\"the Child\").",
+      "page": 1
+    }
+  ]
+}

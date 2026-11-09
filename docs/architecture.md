@@ -24,7 +24,7 @@ flowchart LR
   Lib -- "verify session" --> FAuth
   Lib -- "invite, codes" --> Resend[Resend]
   Lib -- "Log in with PayPal, later Orders/Payouts" --> PayPal[PayPal sandbox]
-  Lib -. "Phase 2-3" .-> Gemini[Gemini]
+  Lib --> Gemini[Gemini]
   Lib -. "Phase 3" .-> Cloudinary[Cloudinary]
 ```
 
@@ -65,4 +65,27 @@ sequenceDiagram
   U->>A: POST /api/paypal/connect/callback
   A->>P: code -> token (Basic auth), userinfo
   A->>A: save payerId, email, verified discard token
+```
+
+## Agreement extraction and preflight (Phase 2)
+
+```mermaid
+sequenceDiagram
+  participant O as Owner (browser)
+  participant API as Next.js route handlers
+  participant FS as Firestore
+  participant G as Gemini
+  O->>API: POST /api/agreements (PDF or text)
+  API->>API: unpdf per-page text, size/page/magic checks, scanned check
+  API->>FS: agreements/{id} + pages/{n} (PDF not stored)
+  O->>API: POST /api/agreements/{id}/extract
+  API->>G: page text with PAGE markers, JSON schema, temperature 0
+  G-->>API: rules with quote + page, parties
+  API->>API: zod parse, verify every quote, value-in-quote check, conflicts
+  API->>FS: ruleVersions/{id} DRAFT
+  O->>API: PATCH rules (confirm / edit / reject), POST activate
+  API->>FS: one transaction: DRAFT to ACTIVE, old ACTIVE to SUPERSEDED, family pointer
+  O->>API: POST /api/expenses/preflight (live) then POST /api/expenses
+  API->>API: rules engine evaluate() (no AI): verdict, citations, shares
+  API->>FS: expenses/{id} + events row (pinned to the rule version)
 ```

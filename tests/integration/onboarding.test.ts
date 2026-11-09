@@ -9,14 +9,14 @@ import { db } from "@/lib/firebase/admin";
 import { readMemoryOutbox } from "@/lib/email/outbox";
 import { call, signedInUser, type CookieJar } from "../helpers/api";
 import { resetEmulators } from "../helpers/emulator";
-import { expectOk, ownerWithFamily } from "../helpers/flows";
+import { activateDemoAgreement, expectOk, ownerWithFamily } from "../helpers/flows";
 
 beforeAll(resetEmulators);
 
 const patch = (jar: CookieJar, body: unknown) => call(patchMe, { method: "PATCH", path: "/api/me", jar, body });
 
 describe("onboarding", () => {
-  it("ON-1 (Phase 1 part): completes profile -> agreement (placeholder) -> family -> invite -> paypal -> plan -> done", async () => {
+  it("ON-1: completes profile -> agreement -> family -> invite -> paypal -> plan -> done", async () => {
     const { owner, coParentEmail } = await ownerWithFamily();
     expect((await call(getMe, { path: "/api/me", jar: owner.jar })).json.me.onboardingStep).toBe("family");
 
@@ -52,10 +52,19 @@ describe("onboarding", () => {
   it("family step needs a child and the co-parent", async () => {
     const u = await signedInUser();
     await expectOk(patch(u.jar, { displayName: "Alex", completeStep: "profile" }));
+    await activateDemoAgreement(u.jar);
     await expectOk(patch(u.jar, { completeStep: "agreement" }));
     const r = await patch(u.jar, { completeStep: "family" });
     expect(r.status).toBe(409);
     expect(r.json.error.message).toMatch(/child/);
+  });
+
+  it("agreement step cannot complete without active rules", async () => {
+    const u = await signedInUser();
+    await expectOk(patch(u.jar, { displayName: "Alex", completeStep: "profile" }));
+    const r = await patch(u.jar, { completeStep: "agreement" });
+    expect(r.status).toBe(409);
+    expect(r.json.error.message).toMatch(/agreement/);
   });
 
   it("ON-4: co-parent email equal to the owner's is a 400 validation error", async () => {

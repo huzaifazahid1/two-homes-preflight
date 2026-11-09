@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
 // E2E helpers that talk to the emulators directly over REST (no Admin SDK in the browser test process).
@@ -48,4 +49,53 @@ export async function latestCodeFor(to: string): Promise<string> {
 export async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow, "page should not scroll horizontally").toBeLessThanOrEqual(0);
+}
+
+export const DEMO_AGREEMENT = readFileSync("fixtures/agreement/demo-agreement.md", "utf8");
+
+/** Onboarding step 2: paste the demo agreement, review (demo mode cached extraction), confirm all, activate. */
+export async function completeAgreementStep(page: Page) {
+  await expect(page).toHaveURL(/\/onboarding\/agreement$/);
+  await page.getByText("Paste the text", { exact: true }).click();
+  await page.getByLabel("Agreement text").fill(DEMO_AGREEMENT);
+  await page.getByRole("button", { name: "Read the rules" }).click();
+  await expect(page.getByText("Demo mode: cached extraction")).toBeVisible({ timeout: 30_000 });
+  const confirm = page.getByRole("button", { name: "Confirm", exact: true });
+  for (let n = await confirm.count(); n > 0; n--) {
+    await confirm.first().click();
+    await expect(confirm).toHaveCount(n - 1);
+  }
+  await page.getByRole("button", { name: "Confirm rules" }).click();
+  await expect(page.getByText(/rules? confirmed/)).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+}
+
+/** Full owner onboarding through the UI, ending on /app. */
+export async function onboardOwner(page: Page) {
+  const email = uniqueEmail("alex");
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("Passw0rd!long");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/verify-email$/, { timeout: 20_000 });
+  await verifyEmailInEmulator(email);
+  await page.getByRole("button", { name: "I have verified my email" }).click();
+  await page.getByLabel("Your name").fill("Alex Rivera");
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await completeAgreementStep(page);
+  await page.getByRole("button", { name: "Add Mia" }).click();
+  await expect(page.getByRole("button", { name: "Remove Mia" })).toBeVisible();
+  await page.getByRole("region", { name: "The other parent" }).getByLabel("Email", { exact: true }).fill(uniqueEmail("sara"));
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await page.getByRole("button", { name: "Send invite" }).click();
+  await expect(page.getByLabel("Invite link (works for 7 days)")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Use my PayPal email instead" }).click();
+  await page.getByLabel("PayPal email").fill("alex.pp@example.com");
+  await page.getByLabel("Type it again").fill("alex.pp@example.com");
+  await page.getByRole("button", { name: "Save PayPal email" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue with Free" }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  return { email };
 }

@@ -1,4 +1,4 @@
-import { Home, ReceiptText, Settings, Wallet, type LucideIcon } from "lucide-react";
+import { Home, ReceiptText, ScrollText, Settings, Wallet, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -6,6 +6,7 @@ export const NAV: NavItem[] = [
   { href: "/app", label: "Home", icon: Home },
   { href: "/app/expenses", label: "Expenses", icon: ReceiptText },
   { href: "/app/money", label: "Money", icon: Wallet },
+  { href: "/app/agreement", label: "Agreement", icon: ScrollText },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
