@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Money } from "@/components/domain/money";
 import { SuccessCheck } from "@/components/domain/success-check";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ConfirmSheet } from "@/components/domain/confirm-sheet";
+import { PendingLabel } from "@/components/domain/pending-label";
 import type { ExpenseView } from "@/types/views";
 import { ActionError, useAction } from "./use-action";
 
@@ -71,23 +72,18 @@ export function ApprovalStep({ e, other, isBuyer, timeZone }: { e: ExpenseView; 
         {isBuyer ? (
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="outline" className="h-11" onClick={() => void ask()} disabled={Boolean(busy)}>
-              <Send aria-hidden /> {busy === "ask" ? "Sending…" : "Send the link again"}
+              <PendingLabel pending={busy === "ask"} busy="Sending…" idle={<><Send aria-hidden /> Send the link again</>} />
             </Button>
-            <Dialog>
-              <DialogTrigger render={<Button variant="ghost" className="h-11 text-muted-foreground" />}>Cancel request</DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cancel the approval request?</DialogTitle>
-                  <DialogDescription>The link in {other}&rsquo;s email stops working right away.</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose render={<Button variant="outline" className="h-11" />}>Keep it</DialogClose>
-                  <Button className="h-11" onClick={() => void run("cancel", `/api/expenses/${e.id}/approval-request`, { method: "DELETE" })} disabled={Boolean(busy)}>
-                    {busy === "cancel" ? "Cancelling…" : "Cancel request"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <ConfirmSheet
+              trigger={<Button variant="ghost" className="h-11 text-muted-foreground">Cancel request</Button>}
+              title="Cancel the approval request?"
+              description={`The link in ${other}’s email stops working right away.`}
+              cancelLabel="Keep it"
+              confirmLabel="Cancel request"
+              pendingLabel="Cancelling…"
+              destructive
+              onConfirm={async () => (await run("cancel", `/api/expenses/${e.id}/approval-request`, { method: "DELETE" })) !== null}
+            />
           </div>
         ) : null}
         {sentNote}
@@ -108,7 +104,7 @@ export function ApprovalStep({ e, other, isBuyer, timeZone }: { e: ExpenseView; 
         </p>
         {isBuyer ? (
           <Button variant="outline" className="mt-3 h-11" onClick={() => void ask()} disabled={Boolean(blocked) || Boolean(busy)}>
-            {blocked && a.blockedUntil ? `You can ask again from ${day(a.blockedUntil)}` : busy === "ask" ? "Sending…" : "Ask again"}
+            <PendingLabel pending={busy === "ask"} busy="Sending…" idle={blocked && a.blockedUntil ? `You can ask again from ${day(a.blockedUntil)}` : "Ask again"} />
           </Button>
         ) : null}
         {sentNote}
@@ -132,7 +128,7 @@ export function ApprovalStep({ e, other, isBuyer, timeZone }: { e: ExpenseView; 
         ) : null}
         {isBuyer && a.state !== "CANCELLED" ? (
           <Button className="mt-3 h-11 px-4" onClick={() => void ask()} disabled={Boolean(busy)}>
-            <Send aria-hidden /> {busy === "ask" ? "Sending…" : a.state === "EXPIRED" ? `Ask ${other} again` : `Ask ${other} for approval`}
+            <PendingLabel pending={busy === "ask"} busy="Sending…" idle={<><Send aria-hidden /> {a.state === "EXPIRED" ? `Ask ${other} again` : `Ask ${other} for approval`}</>} />
           </Button>
         ) : null}
         {sentNote}

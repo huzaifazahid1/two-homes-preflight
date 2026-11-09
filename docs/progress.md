@@ -37,6 +37,8 @@ Last updated: 2026-11-09 (Phase 3)
   - Daily job (`src/lib/jobs/daily.ts`, `POST /api/jobs/daily`, `.github/workflows/daily-job.yml`).
   - Dashboard totals by aggregation + "needs your action" (`src/lib/data/dashboard.ts`, `GET /api/dashboard`), Home and Money tab, live listeners with paused banner.
   - Invariant checker (`src/lib/invariants.ts`, `npm run invariants`).
+  - Motion and native feel: success check, count-up totals, state cross-fades, live list enter/leave/reorder, bottom-sheet confirmations on phones, spinner labels; all under 400 ms and reduced-motion safe.
+  - Demo receipts in `fixtures/receipts/` (soccer camp JPG + PDF, dentist JPG); read correctly by real `gemini-2.5-flash`.
   - Tests: 167 unit, 180 integration (emulators), 6 E2E runs (3 journeys x phone and desktop) green. Invariants: zero violations on Phase 3 flow data.
 
 ## In progress
@@ -53,7 +55,6 @@ Last updated: 2026-11-09 (Phase 3)
 - **Deploy the new indexes** with the rules (`npm run firebase:deploy-rules`, owner approval). Without them the daily job and overdue totals fail on the real project.
 - **GitHub secrets** `APP_URL` and `JOB_SECRET` for the daily job workflow.
 - **Owner decisions (state machine gaps):** (a) after a cancelled approval request, allow asking again (add CANCELLED to the RESEND row)? (b) a late receipt on an already approved expense has no path to a new approval. Default: spec unchanged.
-- **Demo receipts:** the 3 synthetic receipts in `fixtures/receipts/` are still to be made.
 
 - **Gemini model:** `gemini-3.8-flash` (current `.env.local`) returned 504 / 503 on every extraction call today; `gemini-2.5-flash` works (about 10 s per run). Decide `GEMINI_MODEL` (decision 2.21).
 

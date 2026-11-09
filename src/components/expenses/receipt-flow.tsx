@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingLabel } from "@/components/domain/pending-label";
 import { AlertTriangle, Camera, CheckCircle2, FileText, ImageUp, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -171,7 +172,7 @@ function Upload({ e, other, onUploaded }: { e: ExpenseView; other: string; onUpl
       </div>
       <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] -mx-4 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0">
         <Button className="h-12 w-full text-[15px] lg:w-auto lg:px-6" onClick={() => void send()} disabled={!file || phase !== "idle"}>
-          {phase === "uploading" ? "Uploading…" : "Upload receipt"}
+          <PendingLabel pending={phase === "uploading"} busy="Uploading…" idle="Upload receipt" />
         </Button>
       </div>
     </div>
@@ -298,7 +299,7 @@ function ConfirmForm({ e, r, other, onReplace }: { e: ExpenseView; r: ReceiptVie
       <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
       <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] -mx-4 flex flex-col gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:flex-row lg:border-0 lg:bg-transparent lg:p-0">
         <Button type="submit" className="h-12 w-full text-[15px] lg:w-auto lg:px-6" disabled={busy}>
-          {busy ? "Checking…" : open.length ? "Check again" : "Confirm receipt"}
+          <PendingLabel pending={busy} busy="Checking…" idle={open.length ? "Check again" : "Confirm receipt"} />
         </Button>
         {onReplace ? (
           <Button type="button" variant="ghost" className="h-11" onClick={onReplace} disabled={busy}>

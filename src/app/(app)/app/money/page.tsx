@@ -3,6 +3,7 @@ import { ChevronRight, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { OverdueBanner, TotalsCards } from "@/components/dashboard/totals";
+import { LiveList } from "@/components/domain/live-list";
 import { Money } from "@/components/domain/money";
 import { SettlementStatusBadge } from "@/components/domain/status-badge";
 import { LiveRefresh } from "@/components/live/live-refresh";
@@ -71,12 +72,11 @@ function ClaimSection({ id, title, items, me, names, empty }: { id: string; titl
       {items.length === 0 ? (
         <p className="t-small text-muted-foreground">{empty}</p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+        <LiveList className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
           {items.map((c) => {
             const toMe = c.paidByRole === me;
             return (
-              <li key={c.id}>
-                <Link href={`/app/expenses/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2/60 focus-visible:-outline-offset-2">
+                <Link key={c.id} href={`/app/expenses/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2/60 focus-visible:-outline-offset-2">
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-3">
                       <span className="truncate font-medium">{c.description}</span>
@@ -92,10 +92,9 @@ function ClaimSection({ id, title, items, me, names, empty }: { id: string; titl
                   </span>
                   <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                 </Link>
-              </li>
             );
           })}
-        </ul>
+        </LiveList>
       )}
     </section>
   );

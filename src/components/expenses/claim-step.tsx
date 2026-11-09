@@ -3,7 +3,9 @@
 import { AlertTriangle, BellRing, Camera, Copy, HandCoins, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { ConfirmSheet } from "@/components/domain/confirm-sheet";
 import { DisputeThread } from "@/components/domain/dispute-thread";
+import { PendingLabel } from "@/components/domain/pending-label";
 import { RespondForm } from "@/components/domain/dispute-respond";
 import { Money } from "@/components/domain/money";
 import { ReceiptViewButton } from "@/components/domain/receipt-view-button";
@@ -11,7 +13,6 @@ import { SettlementStatusBadge } from "@/components/domain/status-badge";
 import { ISSUE_TEXT } from "@/components/domain/status-meta";
 import { SuccessCheck } from "@/components/domain/success-check";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import type { Role } from "@/types/firestore";
 import type { DisputeView, ExpenseView, ReceiptView } from "@/types/views";
@@ -124,7 +125,7 @@ export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone }: Omit<Pr
             if (r) setSentLink({ link: r.claim.link, email: r.claim.email.status });
           }}
         >
-          <HandCoins aria-hidden /> {busy === "request" ? "Sending…" : <>Request <Money cents={e.verdict.owedShareCents} /> from {payer}, due {day(due).replace(/, \d{4}$/, "")}</>}
+          <PendingLabel pending={busy === "request"} busy="Sending…" idle={<><HandCoins aria-hidden /> Request <Money cents={e.verdict.owedShareCents} /> from {payer}, due {day(due).replace(/, \d{4}$/, "")}</>} />
         </Button>
         <ActionError error={error} />
       </div>
@@ -167,40 +168,32 @@ export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone }: Omit<Pr
       {openClaim && isBuyer ? (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="h-11" disabled={!canRemind || Boolean(busy)} onClick={() => void run("remind", `/api/expenses/${e.id}/remind`)}>
-            <BellRing aria-hidden /> {busy === "remind" ? "Sending…" : canRemind ? "Send a reminder" : `Next reminder ${day(st.nextReminderAt!)}`}
+            <PendingLabel pending={busy === "remind"} busy="Sending…" idle={<><BellRing aria-hidden /> {canRemind ? "Send a reminder" : `Next reminder ${day(st.nextReminderAt!)}`}</>} />
           </Button>
-          <Dialog>
-            <DialogTrigger render={<Button variant="outline" className="h-11" />}>Mark received</DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Did {payer} pay you outside the app?</DialogTitle>
-                <DialogDescription>It is recorded as settled. {payer} is told and can contest it within 7 days.</DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" className="h-11" />}>Not yet</DialogClose>
-                <Button className="h-11" onClick={() => void run("received", `/api/expenses/${e.id}/mark-received`)} disabled={Boolean(busy)}>
-                  {busy === "received" ? "Saving…" : "Yes, I received it"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Dialog>
-            <DialogTrigger render={<Button variant="ghost" className="h-11 text-muted-foreground" />}>Waive it</DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Waive {payer}&rsquo;s share?</DialogTitle>
-                <DialogDescription>Nothing will be owed for this expense. Say why, for your shared record.</DialogDescription>
-              </DialogHeader>
+          <ConfirmSheet
+            trigger={<Button variant="outline" className="h-11">Mark received</Button>}
+            title={`Did ${payer} pay you outside the app?`}
+            description={`It is recorded as settled. ${payer} is told and can contest it within 7 days.`}
+            cancelLabel="Not yet"
+            confirmLabel="Yes, I received it"
+            pendingLabel="Saving…"
+            onConfirm={async () => (await run("received", `/api/expenses/${e.id}/mark-received`)) !== null}
+          />
+          <ConfirmSheet
+            trigger={<Button variant="ghost" className="h-11 text-muted-foreground">Waive it</Button>}
+            title={`Waive ${payer}’s share?`}
+            description="Nothing will be owed for this expense. Say why, for your shared record."
+            cancelLabel="Keep the claim"
+            confirmLabel="Waive"
+            pendingLabel="Saving…"
+            canConfirm={reason.trim().length > 0}
+            onConfirm={async () => (await run("waive", `/api/expenses/${e.id}/waive`, { body: { reason } })) !== null}
+          >
+            <div className="space-y-1.5 pb-2">
               <label htmlFor="waive-reason" className="text-sm font-medium">Reason</label>
               <Textarea id="waive-reason" rows={3} maxLength={500} className="text-base" value={reason} onChange={(ev) => setReason(ev.target.value)} />
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" className="h-11" />}>Keep the claim</DialogClose>
-                <Button className="h-11" onClick={() => void run("waive", `/api/expenses/${e.id}/waive`, { body: { reason } })} disabled={!reason.trim() || Boolean(busy)}>
-                  {busy === "waive" ? "Saving…" : "Waive"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </ConfirmSheet>
         </div>
       ) : null}
       {openClaim && !isBuyer ? <p className="text-muted-foreground">Use the link in the email from {receiver} to see the receipt or say you paid outside the app. Paying in the app is part of the Family plan.</p> : null}
@@ -216,10 +209,10 @@ export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone }: Omit<Pr
           {isBuyer ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <Button className="h-11" onClick={() => void run("confirm", `/api/expenses/${e.id}/external-report/confirm`)} disabled={Boolean(busy)}>
-                {busy === "confirm" ? "Saving…" : "I received it"}
+                <PendingLabel pending={busy === "confirm"} busy="Saving…" idle="I received it" />
               </Button>
               <Button variant="outline" className="h-11" onClick={() => void run("reject", `/api/expenses/${e.id}/external-report/reject`)} disabled={Boolean(busy)}>
-                {busy === "reject" ? "Saving…" : "I did not receive it"}
+                <PendingLabel pending={busy === "reject"} busy="Saving…" idle="I did not receive it" />
               </Button>
             </div>
           ) : null}

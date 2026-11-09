@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingLabel } from "@/components/domain/pending-label";
 import { CheckCircle2, Clock3, LinkIcon } from "lucide-react";
 import { useState } from "react";
 import { OtpInput } from "@/components/domain/otp-input";
@@ -50,7 +51,7 @@ export function LinkVerify({ token, sentTo, purpose, onVerified }: { token: stri
           <p className="mt-2 text-muted-foreground">To {purpose}, we will email a 6-digit code to {sentTo}, the address this link was sent to.</p>
           <div aria-live="polite" className="mt-3">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
           <Button className="mt-3 h-11 w-full text-[15px] sm:w-auto" onClick={() => void send()} disabled={busy}>
-            {busy ? "Sending…" : "Email me a code"}
+            <PendingLabel pending={busy} busy="Sending…" idle="Email me a code" />
           </Button>
         </>
       ) : (
@@ -67,7 +68,7 @@ export function LinkVerify({ token, sentTo, purpose, onVerified }: { token: stri
           <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" className="h-11 text-[15px]" disabled={busy}>
-              {busy ? "Checking…" : "Confirm code"}
+              <PendingLabel pending={busy} busy="Checking…" idle="Confirm code" />
             </Button>
             <Button type="button" variant="ghost" className="h-11" onClick={() => void send()} disabled={busy}>
               Send a new code

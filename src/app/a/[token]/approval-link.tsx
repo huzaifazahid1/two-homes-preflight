@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingLabel } from "@/components/domain/pending-label";
 import { AlertTriangle, XCircle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "next/navigation";
@@ -203,7 +204,7 @@ function DecisionForm({ s, token, onDone }: { s: ApprovalLinkSummary; token: str
       <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
       <div className="sticky bottom-0 -mx-4 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button type="submit" className={`h-12 w-full text-[15px] sm:w-auto sm:px-6 ${choice === "DECLINED" ? "bg-danger text-white hover:bg-danger/90" : ""}`} disabled={busy}>
-          {busy ? "Saving…" : label}
+          <PendingLabel pending={busy} busy="Saving…" idle={label} />
         </Button>
       </div>
       <p className="t-small text-muted-foreground">Your answer is final. Changing it needs a new request.</p>

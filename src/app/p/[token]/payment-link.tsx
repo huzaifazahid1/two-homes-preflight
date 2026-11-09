@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingLabel } from "@/components/domain/pending-label";
 import { Info } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "next/navigation";
@@ -219,7 +220,7 @@ function ReportForm({ token, receiver, onDone }: { token: string; receiver: stri
       </div>
       <Feedback error={error} />
       <Button type="submit" className="h-12 w-full text-[15px] sm:w-auto sm:px-6" disabled={busy}>
-        {busy ? "Sending…" : `Tell ${receiver} I paid`}
+        <PendingLabel pending={busy} busy="Sending…" idle={`Tell ${receiver} I paid`} />
       </Button>
       <p className="t-small text-muted-foreground">It stays outstanding until {receiver} confirms they received it.</p>
     </form>
@@ -274,7 +275,7 @@ function DisputeForm({ expenseId, owedCents, onDone }: { expenseId: string; owed
       <Feedback error={error} />
       <div className="flex flex-wrap gap-3">
         <Button type="submit" className="h-11" disabled={busy || !reason.trim()}>
-          {busy ? "Sending…" : "Send dispute"}
+          <PendingLabel pending={busy} busy="Sending…" idle="Send dispute" />
         </Button>
         <Button type="button" variant="ghost" className="h-11" onClick={() => setOpen(false)}>
           Cancel

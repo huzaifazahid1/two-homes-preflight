@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingLabel } from "@/components/domain/pending-label";
 import { useState } from "react";
 import { Segmented } from "@/components/domain/segmented";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export function RespondForm({ expenseId, receiver, proposal, onDone, redirectOn4
       ) : null}
       <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
       <Button type="submit" className="h-11" disabled={busy}>
-        {busy ? "Sending…" : action === "agree" ? "Agree" : "Send answer"}
+        <PendingLabel pending={busy} busy="Sending…" idle={action === "agree" ? "Agree" : "Send answer"} />
       </Button>
     </form>
   );

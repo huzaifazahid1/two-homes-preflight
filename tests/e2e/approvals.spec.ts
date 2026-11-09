@@ -76,6 +76,15 @@ test("approval by link, receipt, claim and settled outside the app", async ({ pa
   await expect(page.locator("article").getByText("Waiting for payment").first()).toBeVisible();
   await shot(page, "claim-sent", p);
 
+  // Confirmations: bottom sheet on phones, dialog on desktop; "Not yet" changes nothing.
+  await page.getByRole("button", { name: "Mark received" }).click();
+  const confirm = page.getByRole("dialog", { name: /pay you outside the app/ });
+  await expect(confirm).toBeVisible();
+  await shot(page, "confirm-sheet", p);
+  await confirm.getByRole("button", { name: "Not yet" }).click();
+  await expect(confirm).toBeHidden();
+  await expect(page.locator("article").getByText("Waiting for payment").first()).toBeVisible();
+
   // The co-parent says they paid outside the app (Free plan).
   await sara.goto(await latestLinkFor(coParentEmail, "p"));
   await expect(sara.getByRole("heading", { name: /asks for your share/ })).toBeVisible();
