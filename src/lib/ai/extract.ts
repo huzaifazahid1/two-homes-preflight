@@ -22,6 +22,7 @@ export async function runExtraction(pages: PageText[], requestId?: string) {
     schema: aiExtractionSchema,
     requestId,
     maxOutputTokens: 16_384,
+    thinking: "LOW",
   });
 }
 

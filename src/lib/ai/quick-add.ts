@@ -45,6 +45,7 @@ export async function quickAdd(ctx: FamilyContext, text: string, requestId?: str
       schema: aiQuickAddSchema,
       requestId,
       maxOutputTokens: 1024,
+      thinking: "MINIMAL",
     }));
   } catch (err) {
     if (err instanceof AiError) {

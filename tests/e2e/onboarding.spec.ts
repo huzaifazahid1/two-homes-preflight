@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoHorizontalScroll, latestCodeFor, uniqueEmail, verifyEmailInEmulator } from "./helpers";
+import { completeAgreementStep, expectNoHorizontalScroll, latestCodeFor, uniqueEmail, verifyEmailInEmulator } from "./helpers";
 
 // P1 E2E: owner signs up, verifies, completes onboarding (ON-1 Phase 1 part), invites the co-parent;
 // the co-parent opens the invite on a phone, gets a code and accepts (LK-1, LK-3). UI-1 / UI-2 checks.
@@ -29,16 +29,15 @@ test("owner onboarding and co-parent invite acceptance", async ({ page, browser,
 
   await page.getByLabel("Your name").fill("Alex Rivera");
   await page.getByRole("button", { name: "Save and continue" }).click();
-  await expect(page).toHaveURL(/\/onboarding\/agreement$/);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await completeAgreementStep(page);
 
+  // ON-5: names from the agreement prefill the family step, with their quotes.
   await expect(page).toHaveURL(/\/onboarding\/family$/);
-  await page.getByLabel("First name").fill("Mia");
-  await page.getByLabel("Birth year (optional)").fill("2016");
-  await page.getByRole("button", { name: "Add child" }).click();
-  await expect(page.getByText("born 2016")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Found in your agreement" })).toBeVisible();
+  await page.getByRole("button", { name: "Add Mia" }).click();
+  await expect(page.getByRole("button", { name: "Remove Mia" })).toBeVisible();
   const other = page.getByRole("region", { name: "The other parent" });
-  await other.getByLabel("Name", { exact: true }).fill("Sara Rivera");
+  await expect(other.getByLabel("Name", { exact: true })).toHaveValue("Sara Rivera");
   // ON-4: same email as the owner is refused.
   await other.getByLabel("Email", { exact: true }).fill(ownerEmail);
   await page.getByRole("button", { name: "Save and continue" }).click();
@@ -94,6 +93,9 @@ test("owner onboarding and co-parent invite acceptance", async ({ page, browser,
   const code = await latestCodeFor(coEmail);
   await co.getByLabel("Digit 1").fill(code); // fills all six digits
   await expect(co.getByRole("button", { name: "Accept the invitation" })).toBeVisible();
+  // The co-parent answers per rule; disagreeing with one is saved right away (rules-ack).
+  await co.getByRole("group", { name: "Clothing" }).getByText("Disagree").click();
+  await expect(co.getByText("Answer saved.")).toBeVisible();
   await co.getByRole("button", { name: "Accept the invitation" }).click();
   await expect(co.getByRole("heading", { name: "You are connected" })).toBeVisible();
 

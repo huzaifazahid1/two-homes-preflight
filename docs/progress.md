@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-09 (Phase 1)
+Last updated: 2026-11-09 (Phase 2)
 
 ## Done
 
@@ -20,15 +20,28 @@ Last updated: 2026-11-09 (Phase 1)
   - Firestore rules and indexes per E.4/E.5 (in repo; not yet deployed).
   - Tests: 95 unit, 74 integration (emulators: auth, onboarding, links/OTP, PayPal connect, state, rules, generated auth matrix), 2 E2E (phone + desktop). SE-1 bundle check clean.
 
+- **Phase 2: Agreement and preflight** (branch `phase-2-agreement-preflight`)
+  - `pdf.ts` (unpdf per-page text, 10 MB / 50 pages / magic bytes, scanned detection), pasted text with page markers.
+  - Gemini extraction (`src/lib/ai/*`): structured output, temperature 0, one retry, zod validation; quote verification (`quote-verify.ts`); review analysis (`rules-review.ts`): value-in-quote check, conflicts, duplicate merge, vague terms.
+  - Rule versions: confirm / edit / reject / undo / manual entry; activation supersedes in one transaction; Free limits (3 runs, 1 agreement).
+  - Rules engine (`rules-engine.ts`) per A.6.1; expenses create / edit / cancel / list / detail with timeline; preflight dry run; duplicate check; quick add.
+  - Co-parent per-rule answers (`rules-ack`) with re-check of affected expenses; family step prefill from the agreement.
+  - UI: onboarding agreement step, `/app/agreement`, `/app/agreement/review`, `/app/expenses`, `/new`, `/[id]`, `/[id]/edit`, Home dashboard; VerdictPanel, SourceSheet, SplitBar, Timeline, ClauseCard page chip.
+  - Fixtures: `fixtures/agreement/demo-agreement.md` (6 pages), `fixtures/ai/demo-agreement-extraction.json` (demo mode), `fixtures/ai/recorded-extraction.json` (real Gemini answer).
+  - Tests: 149 unit, 120 integration, 4 E2E runs green. Real Gemini three-run check passed on `gemini-2.5-flash`.
+
 ## In progress
 
-- Nothing. Waiting for the owner's review of Phase 1.
+- Nothing. Waiting for the owner's review of Phase 2.
 
 ## Next
 
-- Owner items below, then Phase 2: Agreement and preflight.
+- Owner items below, then Phase 3: Approvals and claims.
 
 ## Blocked / owner items
+
+- **Gemini model:** `gemini-3.8-flash` (current `.env.local`) returned 504 / 503 on every extraction call today; `gemini-2.5-flash` works (about 10 s per run). Decide `GEMINI_MODEL` (decision 2.21).
+- **Demo PDF and receipts (owner):** make `fixtures/agreement/demo-agreement.pdf` from `demo-agreement.md` (steps in `fixtures/agreement/README.md`) and the 3 synthetic receipts in `fixtures/receipts/` (needed in Phase 3).
 
 - **Deploy Firestore rules and indexes** with `npm run firebase:deploy-rules` (needs owner approval, Section L.6).
 - **Render deploy**: needs the owner's Render account. Set all Section O variables in Render. For a walk-through of onboarding before Phase 2, `DEMO_MODE=true` is needed (decision 1.2).

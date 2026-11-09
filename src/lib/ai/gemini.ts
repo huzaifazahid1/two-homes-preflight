@@ -1,5 +1,5 @@
 import "server-only";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import type { z } from "zod";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
@@ -22,6 +22,7 @@ export class AiError extends AppError {
 }
 
 let cached: { key: string; client: GoogleGenAI } | null = null;
+const RETRY_DELAY_MS = process.env.VITEST ? 0 : 2000;
 
 function client(): { ai: GoogleGenAI; model: string; timeout: number } {
   const e = env();
@@ -47,6 +48,14 @@ function classify(err: unknown): AiFailure {
   return "unavailable";
 }
 
+const BUDGET = { MINIMAL: 0, LOW: 1024, MEDIUM: 4096 } as const;
+
+/** Gemini 3+ takes a thinking level; 2.x models reject it and take a token budget instead. */
+export function thinkingConfig(model: string, level: keyof typeof BUDGET) {
+  const major = Number(/^gemini-(\d+)/.exec(model)?.[1] ?? 3);
+  return major >= 3 ? { thinkingLevel: ThinkingLevel[level] } : { thinkingBudget: BUDGET[level] };
+}
+
 export type GenerateArgs<S extends z.ZodType> = {
   label: "extraction" | "quick_add" | "receipt";
   system: string;
@@ -55,6 +64,8 @@ export type GenerateArgs<S extends z.ZodType> = {
   schema: S;
   requestId?: string;
   maxOutputTokens?: number;
+  /** Gemini 3 thinks by default; long thinking made extraction time out (docs/decisions.md 2.21). */
+  thinking?: "MINIMAL" | "LOW" | "MEDIUM";
 };
 
 /** Calls Gemini and returns validated JSON. Throws AiError after one retry. */
@@ -75,6 +86,7 @@ export async function generateJson<S extends z.ZodType>(args: GenerateArgs<S>): 
           // The SDK's httpOptions.timeout is not enforced on every path, so abort explicitly.
           abortSignal: AbortSignal.timeout(timeout),
           ...(args.maxOutputTokens ? { maxOutputTokens: args.maxOutputTokens } : {}),
+          ...(args.thinking ? { thinkingConfig: thinkingConfig(model, args.thinking) } : {}),
         },
       });
       const text = res.text;
@@ -103,6 +115,8 @@ export async function generateJson<S extends z.ZodType>(args: GenerateArgs<S>): 
     }
     log.warn("ai.attempt_failed", { requestId: args.requestId, label: args.label, model, attempt, reason: last?.reason, error: last?.err, durationMs: Date.now() - started });
     if (last?.reason === "blocked") break;
+    // Provider overload (503/429) usually clears in seconds: wait briefly before the one retry.
+    if (attempt === 1 && last?.reason === "unavailable") await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
   }
   const reason = last?.reason ?? "unavailable";
   const message =

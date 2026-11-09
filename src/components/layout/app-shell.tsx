@@ -2,9 +2,11 @@
 
 import { cn } from "cn";
 import { LayoutGroup, motion } from "motion/react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Kbd } from "@/components/ui/kbd";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Logo } from "./logo";
 import { isActive, NAV } from "./nav-items";
@@ -16,11 +18,32 @@ import { SignOutButton } from "./sign-out-button";
 
 export function AppShell({ children, userName, familyLabel }: { children: React.ReactNode; userName: string; familyLabel: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  // Full-screen forms on phones (P.9): no tab bar, a back link, and the form's own sticky button.
+  const focused = /^\/app\/expenses\/(new|[^/]+\/edit)$/.test(pathname);
+  // Desktop shortcut (P.9): N opens a new expense, unless the user is typing.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "n" && e.key !== "N") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      router.push("/app/expenses/new");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
+    <div data-shell="app" className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-surface px-3 py-4 lg:flex">
         <Logo href="/app" className="px-2" />
-        <nav aria-label="Main" className="mt-6 flex-1">
+        <Link href="/app/expenses/new" className="mt-6 flex h-11 items-center justify-between rounded-lg bg-primary px-3 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+          <span className="flex items-center gap-2">
+            <Plus aria-hidden className="size-[18px]" /> New expense
+          </span>
+          <Kbd className="bg-primary-foreground/15 text-primary-foreground">N</Kbd>
+        </Link>
+        <nav aria-label="Main" className="mt-4 flex-1">
           <ul className="space-y-1">
             {NAV.map((item) => {
               const active = isActive(pathname, item.href);
@@ -52,22 +75,28 @@ export function AppShell({ children, userName, familyLabel }: { children: React.
       <div className="flex min-w-0 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur lg:px-8">
           <div className="lg:hidden">
-            <Logo href="/app" className="text-[15px]" />
+            {focused ? (
+              <Link href="/app/expenses" className="-ml-2 flex min-h-11 items-center gap-1 rounded-md px-2 text-[15px] font-medium">
+                <ArrowLeft aria-hidden className="size-5" /> Expenses
+              </Link>
+            ) : (
+              <Logo href="/app" className="text-[15px]" />
+            )}
           </div>
           <div className="hidden lg:block" />
           <NotificationBell />
         </header>
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pb-28 pt-6 lg:px-8 lg:pb-12">{children}</main>
+        <main className={cn("mx-auto w-full max-w-[1200px] flex-1 px-4 pt-6 lg:px-8 lg:pb-12", focused ? "pb-32" : "pb-28")}>{children}</main>
       </div>
 
-      <BottomTabs pathname={pathname} />
+      {focused ? null : <BottomTabs pathname={pathname} />}
     </div>
   );
 }
 
 function BottomTabs({ pathname }: { pathname: string }) {
   const tabs = [NAV[0], NAV[1], null, NAV[2]] as const;
-  const moreActive = isActive(pathname, "/app/settings");
+  const moreActive = isActive(pathname, "/app/settings") || isActive(pathname, "/app/agreement");
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-safe lg:hidden">
       <LayoutGroup id="tabs">
@@ -76,7 +105,7 @@ function BottomTabs({ pathname }: { pathname: string }) {
             item === null ? (
               <li key="new" className="flex items-start justify-center">
                 <Link
-                  href="/app/expenses"
+                  href="/app/expenses/new"
                   aria-label="New expense"
                   className="-mt-4 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_14px_rgb(18_64_60/0.35)]"
                 >
@@ -107,11 +136,14 @@ function BottomTabs({ pathname }: { pathname: string }) {
                   <DrawerTitle>More</DrawerTitle>
                 </DrawerHeader>
                 <ul className="px-4 pb-6">
-                  <li>
-                    <Link href="/app/settings" className="flex min-h-12 items-center rounded-md px-2 text-[15px] hover:bg-muted">
-                      Settings
-                    </Link>
-                  </li>
+                  {NAV.slice(3).map((item) => (
+                    <li key={item.href}>
+                      <Link href={item.href} aria-current={isActive(pathname, item.href) ? "page" : undefined} className="flex min-h-12 items-center gap-3 rounded-md px-2 text-[15px] hover:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-primary">
+                        <item.icon aria-hidden className="size-[18px] text-muted-foreground" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
                   <li className="mt-2 border-t border-border pt-2">
                     <SignOutButton variant="ghost" className="h-12 w-full justify-start px-2 text-[15px]" />
                   </li>

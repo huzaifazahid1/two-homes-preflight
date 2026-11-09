@@ -25,4 +25,5 @@ The `.md` file can also be pasted as-is into the "Paste the text" box: the `--- 
 
 ## Recorded AI output
 
-`fixtures/ai/demo-agreement-extraction.json` is the extraction used by demo mode (`DEMO_MODE=true` and Gemini unavailable). It goes through the same quote verification as a live answer. Re-record it with `npm run ai:check-extraction` (uses the real Gemini key from `.env.local`).
+- `fixtures/ai/demo-agreement-extraction.json`: the extraction used by demo mode (`DEMO_MODE=true` and Gemini unavailable). Written to match this agreement exactly; it goes through the same quote verification as a live answer.
+- `fixtures/ai/recorded-extraction.json`: a real Gemini answer for this agreement, saved by `npm run ai:check-extraction -- --record` (uses the key from `.env.local`).

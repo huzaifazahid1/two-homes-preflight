@@ -2,8 +2,8 @@
 
 import { cn } from "cn";
 import { AnimatePresence, motion } from "motion/react";
-import type { VerdictCode } from "@/types/firestore";
-import { INVITE_STATUS, VERDICT_META, type Tone } from "./status-meta";
+import type { ApprovalState, VerdictCode } from "@/types/firestore";
+import { APPROVAL_META, INVITE_STATUS, VERDICT_META, type Tone } from "./status-meta";
 
 // Status and verdict chips: icon + words + colour, never colour alone (P.9, P.10).
 // Cross-fades when the status changes (real-time updates); the container is aria-live.
@@ -40,6 +40,11 @@ export function StatusBadge({ tone, icon: Icon, label, className }: { tone: Tone
 export function VerdictBadge({ verdict, className }: { verdict: VerdictCode; className?: string }) {
   const v = VERDICT_META[verdict];
   return <StatusBadge tone={v.tone} icon={v.icon} label={v.label} className={className} />;
+}
+
+export function ApprovalStatusBadge({ state, className }: { state: ApprovalState; className?: string }) {
+  const s = APPROVAL_META[state];
+  return <StatusBadge tone={s.tone} icon={s.icon} label={s.label} className={className} />;
 }
 
 /** Invite status chip; takes the status string so Server Components never pass icon components. */

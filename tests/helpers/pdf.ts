@@ -59,6 +59,6 @@ function wrap(line: string, width: number): string[] {
 /** multipart/form-data body with one file field, for calling the upload handler directly. */
 export function multipart(file: Uint8Array, name: string, type = "application/pdf") {
   const form = new FormData();
-  form.append("file", new Blob([file], { type }), name);
+  form.append("file", new Blob([new Uint8Array(file)], { type }), name);
   return form;
 }

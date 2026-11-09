@@ -4,6 +4,7 @@ import { StepView } from "@/components/onboarding/step-view";
 import { isWizardStep, wizardIndex } from "@/components/onboarding/steps";
 import { Stepper } from "@/components/onboarding/stepper";
 import { Skeleton } from "@/components/ui/skeleton";
+import { agreementOverview, familyContext } from "@/lib/data/family";
 import { requireMe } from "@/lib/data/me";
 
 export default function OnboardingStepPage({ params }: PageProps<"/onboarding/[step]">) {
@@ -22,10 +23,11 @@ async function Step({ params }: { params: PageProps<"/onboarding/[step]">["param
   if (me.onboardingStep === "done") redirect("/app");
   // ON-2: steps after the saved one are not reachable by URL.
   if (wizardIndex(step) > wizardIndex(me.onboardingStep)) redirect(`/onboarding/${me.onboardingStep}`);
+  const agreement = (step === "agreement" || step === "family") && me.familyId ? await agreementOverview(await familyContext(`/onboarding/${step}`)) : null;
   return (
     <div className="space-y-8">
       <Stepper current={step} saved={me.onboardingStep} />
-      <StepView step={step} me={me} />
+      <StepView step={step} me={me} agreement={agreement} />
     </div>
   );
 }
