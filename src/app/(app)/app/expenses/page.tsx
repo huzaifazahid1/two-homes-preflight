@@ -3,6 +3,7 @@ import { Plus, ReceiptText, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ExpenseList } from "@/components/expenses/expense-list";
+import { LiveRefresh } from "@/components/live/live-refresh";
 import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -31,6 +32,7 @@ async function Expenses() {
   );
   return (
     <div className="space-y-6">
+      <LiveRefresh target={{ kind: "list" }} />
       <PageHeader title="Expenses" description="Every expense is checked against your agreement, with the clause it relies on." action={items.length ? newButton : null} />
       {!ctx.family.activeRuleVersionId ? (
         <EmptyState icon={<ScrollText />} title="Confirm your agreement first" body="Expenses are checked against the rules in your agreement. Upload it and confirm the rules to start." href="/app/agreement" cta="Go to the agreement" />

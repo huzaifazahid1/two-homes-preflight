@@ -34,12 +34,16 @@ export function ExpenseVerdict({ expense, agreementId, owedLabel, otherLabel }: 
   );
 }
 
+const CANCELLABLE = new Set(["NONE", "RECEIPT_SUBMITTED", "RECEIPT_ISSUE", "READY", "AWAITING_PAYMENT", "PAYMENT_FAILED"]);
+
 export function ExpenseActions({ expense }: { expense: ExpenseView }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closed = expense.settlement.state !== "NONE";
   const editable = !closed && expense.approval.state !== "REQUESTED";
+  // E.6.2: cancelling is possible for any state before the share is paid.
+  const cancellable = CANCELLABLE.has(expense.settlement.state);
 
   async function cancel() {
     setBusy(true);
@@ -53,7 +57,7 @@ export function ExpenseActions({ expense }: { expense: ExpenseView }) {
     setBusy(false);
   }
 
-  if (expense.settlement.state === "CANCELLED") return null;
+  if (!cancellable && !editable) return null;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
@@ -62,14 +66,14 @@ export function ExpenseActions({ expense }: { expense: ExpenseView }) {
             <Pencil aria-hidden /> Edit
           </Link>
         ) : null}
-        <Dialog>
+        {cancellable ? <Dialog>
           <DialogTrigger render={<Button variant="ghost" className="h-11 px-4 text-danger hover:bg-danger-bg hover:text-danger" />}>
             <XCircle aria-hidden /> Cancel expense
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Cancel this expense?</DialogTitle>
-              <DialogDescription>It stays in the history as cancelled. Nobody can request approval or payment for it after this.</DialogDescription>
+              <DialogDescription>It stays in the history as cancelled. Open approval and payment links stop working, and nobody can request approval or payment for it after this.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" className="h-11" />}>Keep it</DialogClose>
@@ -78,7 +82,7 @@ export function ExpenseActions({ expense }: { expense: ExpenseView }) {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog> : null}
       </div>
       <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
     </div>

@@ -32,18 +32,34 @@ export async function verifyEmailInEmulator(email: string) {
 type FsValue = { stringValue?: string };
 
 /** Latest OTP code emailed to `to`, read from the dev outbox (devOutbox collection in the emulator). */
-export async function latestCodeFor(to: string): Promise<string> {
+export async function latestCodeFor(to: string, after = 0): Promise<string> {
   for (let i = 0; i < 20; i++) {
     const res = await fetch(`${FS}/devOutbox?pageSize=300`, { headers: OWNER_AUTH });
     const body = (await res.json()) as { documents?: { fields: Record<string, FsValue>; createTime: string }[] };
     const mails = (body.documents ?? [])
-      .filter((d) => d.fields.to?.stringValue === to && /your Two Homes Preflight code/.test(d.fields.subject?.stringValue ?? ""))
+      .filter((d) => d.fields.to?.stringValue === to && /your Two Homes Preflight code/.test(d.fields.subject?.stringValue ?? "") && Date.parse(d.createTime) > after)
       .sort((a, b) => a.createTime.localeCompare(b.createTime));
     const last = mails[mails.length - 1];
     if (last) return last.fields.subject!.stringValue!.slice(0, 6);
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`no code email for ${to}`);
+}
+
+/** Latest link of a kind ("a" approval, "p" payment) emailed to `to`, from the dev outbox. */
+export async function latestLinkFor(to: string, kind: "a" | "p", after = 0): Promise<string> {
+  const re = new RegExp(`/${kind}/([A-Za-z0-9_-]{43})`);
+  for (let i = 0; i < 30; i++) {
+    const res = await fetch(`${FS}/devOutbox?pageSize=300`, { headers: OWNER_AUTH });
+    const body = (await res.json()) as { documents?: { fields: Record<string, FsValue>; createTime: string }[] };
+    const mails = (body.documents ?? [])
+      .filter((d) => d.fields.to?.stringValue === to && re.test(d.fields.text?.stringValue ?? "") && Date.parse(d.createTime) > after)
+      .sort((a, b) => a.createTime.localeCompare(b.createTime));
+    const last = mails[mails.length - 1];
+    if (last) return `/${kind}/${re.exec(last.fields.text!.stringValue!)![1]}`;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`no /${kind}/ email for ${to}`);
 }
 
 export async function expectNoHorizontalScroll(page: Page) {
@@ -85,7 +101,8 @@ export async function onboardOwner(page: Page) {
   await completeAgreementStep(page);
   await page.getByRole("button", { name: "Add Mia" }).click();
   await expect(page.getByRole("button", { name: "Remove Mia" })).toBeVisible();
-  await page.getByRole("region", { name: "The other parent" }).getByLabel("Email", { exact: true }).fill(uniqueEmail("sara"));
+  const coParentEmail = uniqueEmail("sara");
+  await page.getByRole("region", { name: "The other parent" }).getByLabel("Email", { exact: true }).fill(coParentEmail);
   await page.getByRole("button", { name: "Save and continue" }).click();
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByLabel("Invite link (works for 7 days)")).toBeVisible();
@@ -97,5 +114,5 @@ export async function onboardOwner(page: Page) {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Continue with Free" }).click();
   await expect(page).toHaveURL(/\/app$/);
-  return { email };
+  return { email, coParentEmail };
 }

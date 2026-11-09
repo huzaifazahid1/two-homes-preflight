@@ -89,3 +89,42 @@ sequenceDiagram
   API->>API: rules engine evaluate() (no AI): verdict, citations, shares
   API->>FS: expenses/{id} + events row (pinned to the rule version)
 ```
+
+
+## Approval, receipt and claim (Phase 3)
+
+Every state change goes through `transition()` in one Firestore transaction (state, version, events row, audit, notification doc); emails are sent after commit. The owner's screen updates through a Firestore listener that triggers a server re-render.
+
+```mermaid
+sequenceDiagram
+    participant A as Owner (app)
+    participant S as Next.js API
+    participant F as Firestore
+    participant E as Resend
+    participant C as Co-parent (link)
+    participant CL as Cloudinary
+    participant G as Gemini
+    A->>S: POST /api/expenses/:id/approval-request
+    S->>F: transition REQUIRED to REQUESTED, approvals doc, link token hash
+    S->>E: approval email with /a/[token]
+    C->>S: GET /api/links/:token (read-only), OTP send + verify
+    C->>S: POST /api/links/:token/decision
+    S->>F: transition to APPROVED, token used
+    F-->>A: listener sees new version, page re-renders
+    A->>S: POST /api/expenses/:id/receipts (multipart)
+    S->>F: receiptHashes create (duplicate check)
+    S->>CL: signed private upload
+    S->>F: receipt doc, NONE to RECEIPT_SUBMITTED
+    S->>G: read merchant, date, total
+    A->>S: POST /api/receipts/:id/confirm
+    S->>F: rules engine + match, READY or RECEIPT_ISSUE
+    A->>S: POST /api/expenses/:id/payment-request
+    S->>F: READY to AWAITING_PAYMENT, dueAt from the clause
+    S->>E: payment email with /p/[token]
+    C->>S: POST /api/links/:token/report-external
+    S->>F: EXTERNAL_PAYMENT_REPORTED (still outstanding)
+    A->>S: POST /api/expenses/:id/external-report/confirm
+    S->>F: SETTLED_EXTERNALLY
+```
+
+A GitHub Actions schedule calls `POST /api/jobs/daily`: it persists expired approvals, sends the 3-day approval reminder and, for Family-plan families, payment reminders. Every reminder has a dedupe key, so a second run sends nothing.

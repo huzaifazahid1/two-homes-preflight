@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-09 (Phase 2)
+Last updated: 2026-11-09 (Phase 3)
 
 ## Done
 
@@ -30,18 +30,32 @@ Last updated: 2026-11-09 (Phase 2)
   - Fixtures: `fixtures/agreement/demo-agreement.md` (6 pages), `fixtures/ai/demo-agreement-extraction.json` (demo mode), `fixtures/ai/recorded-extraction.json` (real Gemini answer).
   - Tests: 149 unit, 120 integration, 4 E2E runs green. Real Gemini three-run check passed on `gemini-2.5-flash`.
 
+- **Phase 3: Approvals and claims** (branch `phase-3-approvals-claims`)
+  - Approvals (`src/lib/approvals.ts`): request, fresh link for an open request, cancel, decision by link + code (approve, part, decline), 3-day reminder, daily cap, decline block, purchased-before-approval flag; `/a/[token]`.
+  - Receipts (`src/lib/receipts/*`): magic-byte check, size and PDF pages, duplicate hash, Cloudinary private upload with compensation, Gemini reading, confirm + match, 5-minute view URL; `/app/expenses/[id]/receipt`.
+  - Claims (`src/lib/claims.ts`): payment request with clause-cited `dueAt`, manual reminder (72 h), mark received, waive, payer report + confirm/reject, 7-day contest; `/p/[token]`. Disputes (`src/lib/disputes.ts`).
+  - Daily job (`src/lib/jobs/daily.ts`, `POST /api/jobs/daily`, `.github/workflows/daily-job.yml`).
+  - Dashboard totals by aggregation + "needs your action" (`src/lib/data/dashboard.ts`, `GET /api/dashboard`), Home and Money tab, live listeners with paused banner.
+  - Invariant checker (`src/lib/invariants.ts`, `npm run invariants`).
+  - Tests: 167 unit, 180 integration (emulators), 6 E2E runs (3 journeys x phone and desktop) green. Invariants: zero violations on Phase 3 flow data.
+
 ## In progress
 
-- Nothing. Waiting for the owner's review of Phase 2.
+- Nothing. Waiting for the owner's review of Phase 3.
 
 ## Next
 
-- Owner items below, then Phase 3: Approvals and claims.
+- Owner items below, then Phase 4: Money, billing, launch.
 
 ## Blocked / owner items
 
+- **"On a phone with real emails" (Phase 3 criterion):** needs `EMAIL_TRANSPORT=resend` and one real Cloudinary upload (keys are in `.env.local`; enable "Allow delivery of PDF and ZIP files" in Cloudinary Security). Verified so far with the dev outbox and a Cloudinary stub.
+- **Deploy the new indexes** with the rules (`npm run firebase:deploy-rules`, owner approval). Without them the daily job and overdue totals fail on the real project.
+- **GitHub secrets** `APP_URL` and `JOB_SECRET` for the daily job workflow.
+- **Owner decisions (state machine gaps):** (a) after a cancelled approval request, allow asking again (add CANCELLED to the RESEND row)? (b) a late receipt on an already approved expense has no path to a new approval. Default: spec unchanged.
+- **Demo receipts:** the 3 synthetic receipts in `fixtures/receipts/` are still to be made.
+
 - **Gemini model:** `gemini-3.8-flash` (current `.env.local`) returned 504 / 503 on every extraction call today; `gemini-2.5-flash` works (about 10 s per run). Decide `GEMINI_MODEL` (decision 2.21).
-- **Demo PDF and receipts (owner):** make `fixtures/agreement/demo-agreement.pdf` from `demo-agreement.md` (steps in `fixtures/agreement/README.md`) and the 3 synthetic receipts in `fixtures/receipts/` (needed in Phase 3).
 
 - **Deploy Firestore rules and indexes** with `npm run firebase:deploy-rules` (needs owner approval, Section L.6).
 - **Render deploy**: needs the owner's Render account. Set all Section O variables in Render. For a walk-through of onboarding before Phase 2, `DEMO_MODE=true` is needed (decision 1.2).

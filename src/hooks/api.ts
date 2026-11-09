@@ -24,10 +24,12 @@ export class ApiError extends Error {
 export async function api<T>(path: string, init: { method?: string; body?: unknown; redirectOn401?: boolean } = {}): Promise<T> {
   let res: Response;
   try {
+    const form = typeof FormData !== "undefined" && init.body instanceof FormData;
     res = await fetch(path, {
       method: init.method ?? "GET",
-      headers: init.body !== undefined ? { "content-type": "application/json" } : undefined,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      // FormData sets its own multipart content type with the boundary.
+      headers: init.body !== undefined && !form ? { "content-type": "application/json" } : undefined,
+      body: init.body === undefined ? undefined : form ? (init.body as FormData) : JSON.stringify(init.body),
       credentials: "same-origin",
       cache: "no-store",
     });
