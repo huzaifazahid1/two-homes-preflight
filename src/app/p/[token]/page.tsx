@@ -6,7 +6,7 @@ import { PaymentLink } from "./payment-link";
 
 export const metadata: Metadata = { title: "Payment request", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
-// Payment request by link (Section A.5.3 step 8, A.6.4). In-app PayPal payment arrives in Phase 4.
+// Payment request by link (Section A.5.3 step 8, A.6.4, G.3): pay with PayPal (Family plan) or report an outside payment.
 export default function PaymentPage() {
   return (
     <div className="min-h-dvh">

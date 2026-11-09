@@ -10,6 +10,9 @@ const publicSchema = z.object({
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1),
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1),
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1),
+  NEXT_PUBLIC_PAYPAL_CLIENT_ID: z.string().min(1),
+  /** Missing until scripts/setup-paypal-plans.ts has run; billing then shows a setup notice. */
+  NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID: z.string().optional(),
   NEXT_PUBLIC_USE_FIREBASE_EMULATORS: z
     .enum(["true", "false"])
     .default("false")
@@ -29,6 +32,8 @@ export function publicEnv(): PublicEnv {
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    NEXT_PUBLIC_PAYPAL_CLIENT_ID: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+    NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID: process.env.NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID,
     NEXT_PUBLIC_USE_FIREBASE_EMULATORS: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS,
   });
   return cached;

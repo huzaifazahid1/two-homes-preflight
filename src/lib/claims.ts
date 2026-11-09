@@ -16,7 +16,10 @@ import { appUrl, familyTimeZone, footerForRole, formatDayIn, party, type Party }
 import { isDueSoon, isOverdue, toMs } from "@/lib/state/effective";
 import { SETTLEMENT_TERMINAL } from "@/lib/state/machines";
 import { transition } from "@/lib/state/transition";
-import type { Actor, DisputeDoc, ExpenseDoc, FamilyDoc, LinkTokenDoc, ReceiptDoc, ReminderKind, Role, Rule, SettlementState } from "@/types/firestore";
+import { breakdownFor } from "@/lib/checkout";
+import { familyEntitled } from "@/lib/entitlement";
+import type { FeeBreakdown } from "@/lib/fees";
+import type { Actor, DisputeDoc, ExpenseDoc, FamilyDoc, LinkTokenDoc, PaymentDoc, ReceiptDoc, ReminderKind, Role, Rule, SettlementState } from "@/types/firestore";
 
 // Claims (Section A.6.4, E.6.2). The buyer (paidByRole) is owed; owedByRole pays. Overdue is
 // derived from dueAt, never stored. Every email to the paying parent carries a fresh payment
@@ -390,6 +393,15 @@ export type PaymentLinkSummary = {
   dispute: { status: DisputeDoc["status"]; rounds: { by: Role; reason: string; proposedCents: number | null; at: string }[]; yourTurn: boolean } | null;
   sentTo: string;
   canAct: boolean;
+  /** In-app PayPal payment (Family plan, Section G.3). */
+  inApp: {
+    available: boolean;
+    breakdown: FeeBreakdown | null;
+    /** A capture is waiting at PayPal (PY-8). */
+    pending: boolean;
+    /** After payment: what is happening with the money. */
+    payout: "waiting_connection" | "sending" | "unclaimed" | "failed" | "refunded" | "sent" | null;
+  };
 };
 
 /** GET /api/links/:token for a payment link: the claim, the clause and what the payer can do. */
@@ -407,6 +419,10 @@ export async function paymentLinkSummary(tokenHash: string, link: LinkTokenDoc, 
   const receipt = e.receiptId ? ((await db().collection("receipts").doc(e.receiptId).get()).data() as ReceiptDoc | undefined) : undefined;
   const at = now();
   const canAct = await requireLinkActor(auth, tokenHash, link).then(() => true, () => false);
+  const [entitled, paySnap] = await Promise.all([familyEntitled(link.familyId), db().collection("payments").doc(expenseId).get()]);
+  const pay = paySnap.data() as PaymentDoc | undefined;
+  const payable = e.settlement.state === "AWAITING_PAYMENT" || e.settlement.state === "PAYMENT_FAILED";
+  const owedNow = e.settlement.owedCents ?? e.verdict.owedShareCents;
   const dispute = dSnap.exists ? (dSnap.data() as DisputeDoc) : null;
   const terms = dueTerms(rule, family);
   const st = e.settlement;
@@ -443,7 +459,32 @@ export async function paymentLinkSummary(tokenHash: string, link: LinkTokenDoc, 
       : null,
     sentTo: maskEmail(link.recipientEmail),
     canAct,
+    inApp: {
+      available: entitled && payable,
+      breakdown: entitled && payable && owedNow > 0 ? await breakdownFor(link.familyId, owedNow) : null,
+      pending: pay?.captureStatus === "PENDING",
+      payout: payoutPhase(e, family),
+    },
   };
+}
+
+function payoutPhase(e: ExpenseDoc, family: FamilyDoc): PaymentLinkSummary["inApp"]["payout"] {
+  switch (e.settlement.state) {
+    case "PAID":
+      return family.payout?.[e.paidByRole] ? "sending" : "waiting_connection";
+    case "PAYOUT_PROCESSING":
+      return "sending";
+    case "PAYOUT_UNCLAIMED":
+      return "unclaimed";
+    case "PAYOUT_FAILED":
+      return "failed";
+    case "REFUNDED":
+      return "refunded";
+    case "SETTLED":
+      return "sent";
+    default:
+      return null;
+  }
 }
 
 export function isClosedClaim(state: SettlementState) {

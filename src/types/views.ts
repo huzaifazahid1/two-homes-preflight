@@ -13,3 +13,7 @@ export type { ApprovalLinkSummary } from "@/lib/approvals";
 export type { PaymentLinkSummary } from "@/lib/claims";
 export type { LinkSummary } from "@/lib/links/actions";
 export type { Dashboard, ClaimTotals } from "@/lib/data/dashboard";
+export type { FeeBreakdown } from "@/lib/fees";
+export type { BillingView } from "@/lib/billing";
+export type { LedgerView, LedgerRow } from "@/lib/data/ledger";
+export type { MoneyStatus } from "@/lib/data/money-status";

@@ -15,7 +15,8 @@ import { SuccessCheck } from "@/components/domain/success-check";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Role } from "@/types/firestore";
-import type { DisputeView, ExpenseView, ReceiptView } from "@/types/views";
+import type { DisputeView, ExpenseView, MoneyStatus, ReceiptView } from "@/types/views";
+import { PayoutPanel } from "./payout-panel";
 import { ActionError, useAction } from "./use-action";
 
 // Receipt and claim part of the expense page (A.6.4): add/confirm the receipt, send the payment
@@ -33,6 +34,8 @@ type Props = {
   names: Record<Role, string>;
   timeZone: string;
   dueTerms: { days: number; clause: { quote: string; page: number } | null; source: "rule" | "default"; previewDueAt: string };
+  money?: MoneyStatus | null;
+  isOwner?: boolean;
 };
 
 export function ReceiptStep({ e, receipt, me, timeZone }: Pick<Props, "e" | "receipt" | "me" | "timeZone">) {
@@ -95,7 +98,7 @@ export function ReceiptStep({ e, receipt, me, timeZone }: Pick<Props, "e" | "rec
   );
 }
 
-export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone }: Omit<Props, "receipt">) {
+export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone, money, isOwner }: Omit<Props, "receipt">) {
   const day = dayIn(timeZone);
   const { busy, error, run, refresh } = useAction();
   const [sentLink, setSentLink] = useState<{ link: string; email: "sent" | "failed" } | null>(null);
@@ -196,7 +199,9 @@ export function ClaimStep({ e, dispute, me, names, dueTerms, timeZone }: Omit<Pr
           </ConfirmSheet>
         </div>
       ) : null}
-      {openClaim && !isBuyer ? <p className="text-muted-foreground">Use the link in the email from {receiver} to see the receipt or say you paid outside the app. Paying in the app is part of the Family plan.</p> : null}
+      {openClaim && !isBuyer ? <p className="text-muted-foreground">Use the link in the email from {receiver} to pay with PayPal (Family plan), see the receipt, or say you paid outside the app.</p> : null}
+
+      {money ? <PayoutPanel e={e} money={money} isBuyer={isBuyer} isOwner={Boolean(isOwner)} payer={payer} receiver={receiver} /> : null}
 
       {st.state === "EXTERNAL_PAYMENT_REPORTED" && st.externalReport ? (
         <div className="rounded-[10px] border border-review/30 bg-review-bg p-4">
