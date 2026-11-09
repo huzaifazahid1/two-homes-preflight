@@ -69,7 +69,8 @@ const serverSchema = z
     if (env.NODE_ENV === "production" && env.EMAIL_TRANSPORT === "outbox" && !env.DEMO_MODE) {
       ctx.addIssue({ code: "custom", path: ["EMAIL_TRANSPORT"], message: "outbox is not allowed in production unless DEMO_MODE=true" });
     }
-    if (env.NODE_ENV === "production" && (env.FIRESTORE_EMULATOR_HOST || env.FIREBASE_AUTH_EMULATOR_HOST)) {
+    // E2E=true is set only by scripts/e2e-server.mjs, which runs a production build against the emulators.
+    if (env.NODE_ENV === "production" && process.env.E2E !== "true" && (env.FIRESTORE_EMULATOR_HOST || env.FIREBASE_AUTH_EMULATOR_HOST)) {
       ctx.addIssue({ code: "custom", path: ["FIRESTORE_EMULATOR_HOST"], message: "emulator variables must never be set in production" });
     }
   });

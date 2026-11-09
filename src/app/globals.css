@@ -4,25 +4,35 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Design tokens (docs/spec/ui-design.md, Section P.9). shadcn variables are mapped onto them. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-serif: var(--font-source-serif), Georgia, serif;
   --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-clause: var(--clause-bg);
+  --color-clause-ink: var(--clause-ink);
+
+  --color-eligible: var(--st-eligible);
+  --color-eligible-bg: var(--st-eligible-bg);
+  --color-approval: var(--st-approval);
+  --color-approval-bg: var(--st-approval-bg);
+  --color-evidence: var(--st-evidence);
+  --color-evidence-bg: var(--st-evidence-bg);
+  --color-neutral-st: var(--st-neutral);
+  --color-neutral-st-bg: var(--st-neutral-bg);
+  --color-danger: var(--st-danger);
+  --color-danger-bg: var(--st-danger-bg);
+  --color-review: var(--st-review);
+  --color-review-bg: var(--st-review-bg);
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -39,92 +49,140 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-brand-accent: var(--brand-accent);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 10px;
+  --background: #f7f6f2;
+  --foreground: #15201e;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --card: #ffffff;
+  --card-foreground: #15201e;
+  --popover: #ffffff;
+  --popover-foreground: #15201e;
+  --primary: #12403c;
+  --primary-hover: #0c2f2c;
+  --primary-foreground: #ffffff;
+  --primary-soft: #e3eeec;
+  --secondary: #efede7;
+  --secondary-foreground: #15201e;
+  --muted: #efede7;
+  --muted-foreground: #5b6663;
+  --accent: #e3eeec;
+  --accent-foreground: #12403c;
+  --brand-accent: #b4502b;
+  --destructive: #b42d27;
+  --border: #e2ded5;
+  --input: #d6d1c6;
+  --ring: #12403c;
+  --clause-bg: #fcefc7;
+  --clause-ink: #15201e;
+
+  --st-eligible: #17744a;
+  --st-eligible-bg: #e4f4ea;
+  --st-approval: #9a5b00;
+  --st-approval-bg: #fdf1dc;
+  --st-evidence: #6e3fb8;
+  --st-evidence-bg: #f0eafb;
+  --st-neutral: #5f6670;
+  --st-neutral-bg: #eeeff1;
+  --st-danger: #b42d27;
+  --st-danger-bg: #fbe7e5;
+  --st-review: #2560ad;
+  --st-review-bg: #e5eefa;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0f1513;
+  --foreground: #e8ecea;
+  --surface: #161e1c;
+  --surface-2: #1e2826;
+  --card: #161e1c;
+  --card-foreground: #e8ecea;
+  --popover: #161e1c;
+  --popover-foreground: #e8ecea;
+  --primary: #5fc2b4;
+  --primary-hover: #7dd0c4;
+  --primary-foreground: #0f1513;
+  --primary-soft: #18302c;
+  --secondary: #1e2826;
+  --secondary-foreground: #e8ecea;
+  --muted: #1e2826;
+  --muted-foreground: #9aa6a2;
+  --accent: #18302c;
+  --accent-foreground: #5fc2b4;
+  --brand-accent: #e08a68;
+  --destructive: #f28b84;
+  --border: #2a3532;
+  --input: #34413d;
+  --ring: #5fc2b4;
+  --clause-bg: #3a3220;
+  --clause-ink: #f3e9c8;
+
+  --st-eligible: #5dd39a;
+  --st-eligible-bg: #16241d;
+  --st-approval: #f2b65c;
+  --st-approval-bg: #2a2112;
+  --st-evidence: #b99af0;
+  --st-evidence-bg: #221b30;
+  --st-neutral: #a3aab3;
+  --st-neutral-bg: #1e2226;
+  --st-danger: #f28b84;
+  --st-danger-bg: #2e1a19;
+  --st-review: #86b4f0;
+  --st-review-bg: #17222f;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 15px;
+    line-height: 24px;
+  }
+  /* Inputs at 16 px on phones so iOS does not zoom (P.9). */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 1024px) {
+    input,
+    select,
+    textarea {
+      font-size: 15px;
+    }
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
+
+/* Type scale (P.9) as utilities so responsive variants work (e.g. sm:t-display). */
+@utility t-display { font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.02em; }
+@utility t-h1 { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -0.015em; }
+@utility t-h2 { font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
+@utility t-h3 { font-size: 18px; line-height: 24px; font-weight: 600; }
+@utility t-small { font-size: 13px; line-height: 20px; }
+@utility t-label { font-size: 12px; line-height: 16px; font-weight: 500; }
+@utility t-amount { font-family: var(--font-mono); font-size: 32px; line-height: 36px; font-weight: 500; font-variant-numeric: tabular-nums; }
+@utility t-quote { font-family: var(--font-serif); font-size: 16px; line-height: 26px; }
+@utility tabular { font-variant-numeric: tabular-nums; }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }

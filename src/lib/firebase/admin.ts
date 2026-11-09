@@ -31,10 +31,21 @@ function adminApp(): App {
   return app;
 }
 
+// Next.js bundles route handlers and pages separately, so this module can be evaluated more than
+// once in one process while firebase-admin's Firestore instance is shared. settings() may only be
+// called once per instance, so the configured instance is cached on globalThis.
+const GLOBAL_KEY = Symbol.for("two-homes.firestore");
+type WithFirestore = typeof globalThis & { [GLOBAL_KEY]?: Firestore };
+
 export function db(): Firestore {
   if (firestore) return firestore;
-  firestore = getFirestore(adminApp());
-  firestore.settings({ ignoreUndefinedProperties: true });
+  const g = globalThis as WithFirestore;
+  if (!g[GLOBAL_KEY]) {
+    const instance = getFirestore(adminApp());
+    instance.settings({ ignoreUndefinedProperties: true });
+    g[GLOBAL_KEY] = instance;
+  }
+  firestore = g[GLOBAL_KEY]!;
   return firestore;
 }
 

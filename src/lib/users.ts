@@ -1,7 +1,7 @@
 import "server-only";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
-import { db, FieldValue } from "@/lib/firebase/admin";
+import { adminAuth, db, FieldValue } from "@/lib/firebase/admin";
 import type { SessionUser } from "@/lib/auth/session";
 import { ensureFamilyInTx, familyView } from "@/lib/family";
 import type { MePatch } from "@/schemas";
@@ -54,6 +54,18 @@ export async function ensureUserDoc(user: SessionUser, timeZone?: string): Promi
     tx.create(ref, doc);
     return doc as unknown as UserDoc;
   });
+}
+
+/**
+ * The session cookie's email_verified claim is stale right after the user clicks the Firebase
+ * verification link, so an unverified profile is re-checked live against Firebase Auth.
+ */
+export async function syncEmailVerified(user: UserDoc): Promise<UserDoc> {
+  if (user.emailVerified) return user;
+  const record = await adminAuth().getUser(user.uid);
+  if (!record.emailVerified) return user;
+  await usersCol().doc(user.uid).update({ emailVerified: true, updatedAt: FieldValue.serverTimestamp() });
+  return { ...user, emailVerified: true };
 }
 
 /** Client-safe profile view returned by /api/me and /api/auth/session. */
@@ -122,6 +134,8 @@ function prerequisiteError(step: OnboardingStep, user: UserDoc, family: FamilyDo
 
 export async function patchMe(sessionUser: SessionUser, patch: MePatch): Promise<UserDoc> {
   const ref = usersCol().doc(sessionUser.uid);
+  const existing = await ref.get();
+  if (existing.exists) await syncEmailVerified(existing.data() as UserDoc);
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) throw new AppError("UNAUTHENTICATED", "Your profile was not found. Please sign in again.");
