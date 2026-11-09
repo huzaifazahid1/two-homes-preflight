@@ -13,6 +13,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // "server-only" throws outside a React Server bundle; tests import server modules directly.
+      "server-only": fileURLToPath(new URL("./tests/helpers/server-only.ts", import.meta.url)),
     },
   },
   test: {
@@ -33,6 +35,9 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.ts", "tests/api/**/*.test.ts"],
           environment: "node",
+          setupFiles: ["tests/helpers/setup-integration.ts"],
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           // Integration tests share one emulator instance; run files one at a time.
           fileParallelism: false,
         },

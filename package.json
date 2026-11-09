@@ -11,7 +11,7 @@
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run --project unit",
     "test:integration": "firebase emulators:exec --only firestore,auth --project demo-two-homes \"vitest run --project integration\"",
-    "test:e2e": "playwright test --pass-with-no-tests",
+    "test:e2e": "playwright test",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
     "seed": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "reset": "tsx --env-file=.env.local scripts/reset-demo.ts",

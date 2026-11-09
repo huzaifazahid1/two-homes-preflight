@@ -53,3 +53,4 @@ replay_pid*.log
 /playwright-report/
 /coverage/
 *.service-account.json
+/.next-e2e/
