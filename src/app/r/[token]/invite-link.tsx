@@ -151,7 +151,7 @@ function Verify({ s, token, onVerified }: { s: InviteSummary; token: string; onV
           <OtpInput value={code} onChange={setCode} onComplete={(v) => void verify(v)} disabled={busy} invalid={Boolean(error)} />
           <div aria-live="polite">{error ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">{error}</p> : null}</div>
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" className="h-11 text-[15px]" disabled={busy || code.length !== 6}>
+            <Button type="submit" className="h-11 text-[15px]" disabled={busy}>
               {busy ? "Checking…" : "Confirm code"}
             </Button>
             <Button type="button" variant="ghost" className="h-11" onClick={() => void send()} disabled={busy}>

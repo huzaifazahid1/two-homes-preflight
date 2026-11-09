@@ -61,6 +61,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 10px;
   --background: #f7f6f2;
   --foreground: #15201e;
@@ -103,6 +104,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0f1513;
   --foreground: #e8ecea;
   --surface: #161e1c;
@@ -149,6 +151,8 @@
   }
   html {
     @apply font-sans;
+    /* Keeps focused fields clear of the fixed bottom tabs / sticky action bar on phones. */
+    scroll-padding-bottom: 112px;
     -webkit-tap-highlight-color: transparent;
   }
   body {

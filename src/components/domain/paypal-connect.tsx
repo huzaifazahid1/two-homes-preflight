@@ -131,7 +131,6 @@ export function PayPalConnect({
               className="h-11"
               aria-invalid={confirmError ? true : undefined}
               aria-describedby={confirmError ? "pp-confirm-err" : undefined}
-              onPaste={(e) => e.preventDefault()}
             />
             {confirmError ? (
               <p id="pp-confirm-err" className="t-small text-danger">

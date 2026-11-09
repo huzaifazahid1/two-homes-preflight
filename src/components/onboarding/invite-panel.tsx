@@ -65,7 +65,7 @@ export function InvitePanel({ family, onSent }: { family: FamilyView; onSent?: (
             Invite link (works for 7 days)
           </label>
           <div className="flex gap-2">
-            <input id="invite-link" readOnly value={result.link} onFocus={(e) => e.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-sm" />
+            <input id="invite-link" translate="no" readOnly value={result.link} onFocus={(e) => e.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-sm" />
             <Button variant="outline" className="h-11" onClick={() => void copy()}>
               <Copy aria-hidden />
               Copy
