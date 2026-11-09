@@ -3,14 +3,15 @@ import { APPROVAL_REMINDER_AFTER_MS, APPROVAL_TTL_MS, approvalsCol, sendApproval
 import { issueReminder } from "@/lib/claims";
 import { DAY_MS, now } from "@/lib/clock";
 import { OVERDUE_STATES } from "@/lib/data/dashboard";
-import { familyEntitled } from "@/lib/entitlement";
+import { familyEntitledFresh } from "@/lib/entitlement";
+import { reconcileExpense } from "@/lib/settlement";
 import { expensesCol } from "@/lib/expenses";
 import { db, FieldValue, Timestamp } from "@/lib/firebase/admin";
 import { log } from "@/lib/log";
 import { party } from "@/lib/parties";
-import { isDueSoon } from "@/lib/state/effective";
+import { isDueSoon, toMs } from "@/lib/state/effective";
 import { transition } from "@/lib/state/transition";
-import type { ApprovalDoc, ExpenseDoc, FamilyDoc, ReminderKind, UserDoc } from "@/types/firestore";
+import type { ApprovalDoc, ExpenseDoc, FamilyDoc, ReminderKind, SettlementState, UserDoc } from "@/types/firestore";
 
 // Daily job (POST /api/jobs/daily, GitHub Actions schedule). Safe to run twice or after a skipped
 // day (CL-10): every email has a dedupe key and every reminder kind is sent at most once.
@@ -20,7 +21,11 @@ import type { ApprovalDoc, ExpenseDoc, FamilyDoc, ReminderKind, UserDoc } from "
 export const DAILY_EMAIL_CAP = 60;
 const MAX_AUTOMATIC = 4;
 
-export type DailySummary = { day: string; expiredApprovals: number; approvalReminders: number; paymentReminders: number; skippedForCap: number; errors: string[] };
+export type DailySummary = { day: string; expiredApprovals: number; approvalReminders: number; paymentReminders: number; skippedForCap: number; payoutsChecked: number; errors: string[] };
+
+/** Claims waiting on PayPal longer than this are re-synced (Section G.9). */
+export const RECONCILE_AFTER_MS = 10 * 60_000;
+const IN_FLIGHT: SettlementState[] = ["PAID", "PAYOUT_PROCESSING", "PAYOUT_UNCLAIMED"];
 
 /** Which automatic payment reminder is due now, if any (pure). */
 export function paymentReminderKind(settlement: Pick<ExpenseDoc["settlement"], "state" | "dueAt" | "reminders">, at: Date): Exclude<ReminderKind, "manual"> | null {
@@ -45,8 +50,8 @@ export async function runDailyJob(meta: { requestId?: string } = {}): Promise<Da
   const day = at.toISOString().slice(0, 10);
   const runRef = db().collection("jobRuns").doc(day);
   const prior = (await runRef.get()).data() as { remindersSent?: number } | undefined;
-  await runRef.set({ startedAt: Timestamp.fromDate(at), runs: FieldValue.increment(1), payoutsChecked: 0 }, { merge: true });
-  const summary: DailySummary = { day, expiredApprovals: 0, approvalReminders: 0, paymentReminders: 0, skippedForCap: 0, errors: [] };
+  await runRef.set({ startedAt: Timestamp.fromDate(at), runs: FieldValue.increment(1) }, { merge: true });
+  const summary: DailySummary = { day, expiredApprovals: 0, approvalReminders: 0, paymentReminders: 0, skippedForCap: 0, payoutsChecked: 0, errors: [] };
   let sentToday = prior?.remindersSent ?? 0;
   const fail = (step: string, id: string, err: unknown) => {
     summary.errors.push(`${step}:${id}`);
@@ -95,7 +100,7 @@ export async function runDailyJob(meta: { requestId?: string } = {}): Promise<Da
     const kind = paymentReminderKind(e.settlement, at);
     if (!kind) continue;
     try {
-      if (!entitled.has(e.familyId)) entitled.set(e.familyId, await familyEntitled(e.familyId));
+      if (!entitled.has(e.familyId)) entitled.set(e.familyId, await familyEntitledFresh(e.familyId, meta.requestId));
       if (!entitled.get(e.familyId)) continue;
       if (!(await wantsReminders(e))) continue;
       if (sentToday >= DAILY_EMAIL_CAP) {
@@ -113,12 +118,26 @@ export async function runDailyJob(meta: { requestId?: string } = {}): Promise<Da
     }
   }
 
+  // 4. Money in flight: missed webhooks, sandbox slowness, an unfunded platform (PY-11, PY-14).
+  const inFlight = await expensesCol().where("settlement.state", "in", IN_FLIGHT).limit(200).get();
+  for (const d of inFlight.docs) {
+    const e = d.data() as ExpenseDoc;
+    if (at.getTime() - (toMs(e.updatedAt) ?? 0) < RECONCILE_AFTER_MS) continue;
+    try {
+      await reconcileExpense(d.id, meta);
+      summary.payoutsChecked++;
+    } catch (err) {
+      fail("reconcile", d.id, err);
+    }
+  }
+
   if (summary.skippedForCap > 0) log.warn("job.daily.email_cap_reached", { requestId: meta.requestId, skipped: summary.skippedForCap });
   await runRef.set(
     {
       finishedAt: Timestamp.fromDate(now()),
       remindersSent: FieldValue.increment(summary.approvalReminders + summary.paymentReminders),
       expiredApprovals: FieldValue.increment(summary.expiredApprovals),
+      payoutsChecked: FieldValue.increment(summary.payoutsChecked),
       ...(summary.errors.length ? { errors: FieldValue.arrayUnion(...summary.errors) } : {}),
     },
     { merge: true },

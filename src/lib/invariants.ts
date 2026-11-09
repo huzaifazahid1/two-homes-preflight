@@ -5,10 +5,10 @@ import { db } from "@/lib/firebase/admin";
 import { resolveLinkHash } from "@/lib/links/tokens";
 import { splitShares } from "@/lib/money";
 import { effectiveApprovalState, linkStatus } from "@/lib/state/effective";
-import type { ApprovalState, ExpenseDoc, ExpenseEventDoc, LinkTokenDoc, RuleVersionDoc, SettlementState } from "@/types/firestore";
+import type { ApprovalState, ExpenseDoc, ExpenseEventDoc, LinkTokenDoc, PaymentDoc, PayoutDoc, RuleVersionDoc, SettlementState } from "@/types/firestore";
 
-// Invariant checker (Section E.7). Read-only. Phase 3 covers 1, 2, 6, 7, 8, 10 and 11; the money
-// invariants (3, 4, 5, 9) are added with Phase 4. Used by scripts/check-invariants.ts and tests.
+// Invariant checker (Section E.7), all 12 checks except 12 (guaranteed by the notification doc id).
+// Read-only. Used by scripts/check-invariants.ts and tests.
 
 export type Violation = { invariant: number; target: string; detail: string };
 
@@ -18,6 +18,8 @@ const CLAIMED: ReadonlySet<SettlementState> = new Set([
 ]);
 const APPROVAL_OK: ReadonlySet<ApprovalState> = new Set(["NOT_REQUIRED", "APPROVED", "PARTIALLY_APPROVED"]);
 const OUTSTANDING: SettlementState[] = ["AWAITING_PAYMENT", "PAYMENT_FAILED", "EXTERNAL_PAYMENT_REPORTED"];
+const UNPAID: ReadonlySet<SettlementState> = new Set(["AWAITING_PAYMENT", "PAYMENT_FAILED"]);
+const PAID_OUT: ReadonlySet<SettlementState> = new Set(["PAYOUT_PROCESSING", "PAYOUT_UNCLAIMED", "PAYOUT_FAILED", "SETTLED", "REFUNDED"]);
 
 export async function checkInvariants(opts: { familyId?: string; limit?: number } = {}): Promise<{ checked: { expenses: number; tokens: number; families: number }; violations: Violation[] }> {
   const at = now();
@@ -38,6 +40,12 @@ export async function checkInvariants(opts: { familyId?: string; limit?: number 
       rvCache.set(id, s.exists ? (s.data() as RuleVersionDoc) : null);
     }
     return rvCache.get(id) ?? null;
+  };
+
+  const planCache = new Map<string, boolean>();
+  const familyHadPlan = async (familyId: string) => {
+    if (!planCache.has(familyId)) planCache.set(familyId, (await db().collection("subscriptions").doc(familyId).get()).exists);
+    return planCache.get(familyId)!;
   };
 
   const usableApprovalFor = new Set<string>();
@@ -62,6 +70,25 @@ export async function checkInvariants(opts: { familyId?: string; limit?: number 
     }
     // 7. Shares never exceed the total.
     if (e.verdict.owedShareCents < 0 || e.verdict.owedShareCents > e.amountCents * 2) add(7, `expenses/${id}`, `owedShareCents ${e.verdict.owedShareCents} out of range`);
+
+    // 3, 4, 5. Money: a completed capture means the claim is no longer unpaid; a payout means a
+    // completed capture of owed + fee line; at most one successful payout, always of owedCents.
+    const [pSnap, oSnap] = await Promise.all([db().collection("payments").doc(id).get(), db().collection("payouts").doc(id).get()]);
+    const pay = pSnap.data() as PaymentDoc | undefined;
+    const out = oSnap.data() as PayoutDoc | undefined;
+    if (pay?.captureStatus === "COMPLETED" && UNPAID.has(e.settlement.state)) add(3, `expenses/${id}`, `capture COMPLETED but settlement ${e.settlement.state}`);
+    if (PAID_OUT.has(e.settlement.state)) {
+      const captured = pay?.captureStatus === "COMPLETED" || (pay?.captureStatus === "REFUNDED" && e.settlement.state === "REFUNDED");
+      if (!captured) add(4, `expenses/${id}`, `settlement ${e.settlement.state} without a completed capture`);
+      else if (pay!.capturedCents !== (e.settlement.owedCents ?? 0) + (pay!.feeLineCents ?? 0)) add(4, `expenses/${id}`, `captured ${pay!.capturedCents} != owed ${e.settlement.owedCents} + fee ${pay!.feeLineCents ?? 0}`);
+    }
+    if (out) {
+      const ok = out.attempts.filter((a) => a.status === "SUCCESS");
+      if (ok.length > 1) add(5, `expenses/${id}`, `${ok.length} successful payouts`);
+      for (const a of out.attempts) if (a.amountCents !== e.settlement.owedCents) add(5, `expenses/${id}`, `payout ${a.senderBatchId} of ${a.amountCents} != owed ${e.settlement.owedCents}`);
+    }
+    // 9. No PayPal order for a family that never had the Family plan (order creation returns 402).
+    if (pay?.attempts.length && !(await familyHadPlan(e.familyId))) add(9, `expenses/${id}`, "PayPal order without a Family plan");
 
     // 11. Every state change has exactly one events row: each machine's rows form one unbroken chain
     // from the initial state to the stored state.

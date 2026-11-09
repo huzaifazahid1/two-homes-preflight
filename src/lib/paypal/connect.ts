@@ -9,7 +9,8 @@ import { db, FieldValue, Timestamp } from "@/lib/firebase/admin";
 import { safeEqual } from "@/lib/ids";
 import { signPayload, verifyPayload } from "@/lib/links/session";
 import { log } from "@/lib/log";
-import type { Role } from "@/types/firestore";
+import { ensurePayout } from "@/lib/settlement";
+import type { ExpenseDoc, Role } from "@/types/firestore";
 import { exchangeAuthorizationCode, paypalGet } from "./http";
 
 // "Connect your PayPal account" (Section F.4). Log in with PayPal is used only to learn which
@@ -140,6 +141,16 @@ export async function saveConnection(
     });
     auditInTx(tx, { familyId, actor, action: `paypal.connect.${conn.method}`, target: `families/${familyId}/payout/${role}`, ...meta });
   });
+  await sendWaitingPayouts(familyId, role);
+}
+
+/** PC-6: claims already paid to this parent were waiting for a PayPal connection. Never throws. */
+async function sendWaitingPayouts(familyId: string, role: Role) {
+  const waiting = await db().collection("expenses").where("familyId", "==", familyId).where("settlement.state", "==", "PAID").get();
+  for (const d of waiting.docs) {
+    if ((d.data() as ExpenseDoc).paidByRole !== role) continue;
+    await ensurePayout(d.id).catch((err: unknown) => log.error("paypal.connect.payout_failed", { expenseId: d.id, error: err }));
+  }
 }
 
 /** DELETE /api/paypal/connect. Blocked while a payout to this family is processing. */
@@ -147,7 +158,7 @@ export async function disconnect(familyId: string, role: Role, actor: { uid: str
   const ref = db().collection("families").doc(familyId);
   await db().runTransaction(async (tx) => {
     const processing = await tx.get(
-      db().collection("expenses").where("familyId", "==", familyId).where("settlement.state", "==", "PAYOUT_PROCESSING").limit(1),
+      db().collection("expenses").where("familyId", "==", familyId).where("settlement.state", "in", ["PAYOUT_PROCESSING", "PAYOUT_UNCLAIMED"]).where("paidByRole", "==", role).limit(1),
     );
     if (!processing.empty) throw new AppError("STATE_CONFLICT", "A payout is being processed. You can disconnect PayPal after it finishes.");
     tx.update(ref, { [`payout.${role}`]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });

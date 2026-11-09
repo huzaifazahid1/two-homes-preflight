@@ -46,6 +46,7 @@ const serverSchema = z
     PAYPAL_WEBHOOK_ID: z.string().optional(),
     PAYPAL_FAMILY_PLAN_ID: z.string().optional(),
     PAYPAL_CONNECT_RETURN_URL: z.url(),
+    PAYPAL_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(30_000),
     PLAN_COVERED_VOLUME_CENTS: cents.default(20000),
     FEE_PERCENT_BPS: cents.default(349),
     FEE_FIXED_CENTS: cents.default(49),

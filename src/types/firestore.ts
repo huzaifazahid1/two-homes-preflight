@@ -312,6 +312,76 @@ export type SubscriptionDoc = {
   updatedAt: Ts;
 };
 
+export type PaymentAttempt = {
+  orderId: string;
+  requestId: string;
+  status: "CREATED" | "APPROVED" | "COMPLETED" | "DECLINED" | "VOIDED";
+  amountCents: number;
+  feeLineCents: number;
+  /** INSTRUMENT_DECLINED captures on this order; each new try uses a new capture key. */
+  declines?: number;
+  at: Ts;
+};
+
+/** payments/{expenseId} (server-only). */
+export type PaymentDoc = {
+  familyId: string;
+  expenseId: string;
+  attempts: PaymentAttempt[];
+  orderId?: string;
+  captureId?: string;
+  captureStatus?: "PENDING" | "COMPLETED" | "DECLINED" | "REFUNDED" | "PARTIALLY_REFUNDED";
+  capturedCents?: number;
+  feeLineCents?: number;
+  paypalFeeCents?: number | null;
+  netCents?: number | null;
+  capturedAt?: Ts;
+  refund?: { refundId: string; status: string; at: Ts };
+  updatedAt: Ts;
+};
+
+export type PayoutStatus = "CREATED" | "PENDING" | "PROCESSING" | "SUCCESS" | "UNCLAIMED" | "FAILED" | "RETURNED" | "BLOCKED" | "REFUNDED" | "HELD" | "CANCELED" | "DENIED";
+
+export type PayoutAttempt = {
+  senderBatchId: string;
+  payoutBatchId?: string;
+  payoutItemId?: string;
+  recipientType: "PAYPAL_ID" | "EMAIL";
+  receiver: string;
+  amountCents: number;
+  status: PayoutStatus;
+  /** Last PayPal problem while creating it (e.g. INSUFFICIENT_FUNDS); reconcile retries the same id. */
+  lastError?: string;
+  /** Definitive 4xx rejections (no batch created); the next try uses a new PayPal-Request-Id. */
+  rejections?: number;
+  at: Ts;
+  lastCheckedAt?: Ts;
+};
+
+/** payouts/{expenseId} (server-only). One doc per claim; attempts are appended. */
+export type PayoutDoc = {
+  familyId: string;
+  expenseId: string;
+  receiverRole: Role;
+  attempts: PayoutAttempt[];
+  status: PayoutStatus;
+  updatedAt: Ts;
+};
+
+/** usage/{familyId}_{yyyymm} (server-only). */
+export type UsageDoc = { coveredSettledCents?: number; aiReceiptScans?: number; extractionRuns?: number };
+
+/** webhookEvents/{eventId} (server-only). */
+export type WebhookEventDoc = {
+  type: string;
+  resourceId: string | null;
+  receivedAt: Ts;
+  processedAt?: Ts;
+  outcome?: "applied" | "noop" | "ignored_unknown" | "error";
+  error?: string;
+  attempts: number;
+};
+
 export const RULE_CATEGORIES = [
   "medical", "dental", "education", "school_supplies", "extracurricular", "childcare", "clothing", "travel", "other",
 ] as const;
