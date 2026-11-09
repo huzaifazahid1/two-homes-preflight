@@ -17,7 +17,8 @@
     "reset": "tsx --env-file=.env.local --conditions=react-server scripts/reset-demo.ts",
     "invariants": "tsx --env-file=.env.local --conditions=react-server scripts/check-invariants.ts",
     "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts",
-    "paypal:setup-plans": "tsx --env-file=.env.local --conditions=react-server scripts/setup-paypal-plans.ts"
+    "paypal:setup-plans": "tsx --env-file=.env.local --conditions=react-server scripts/setup-paypal-plans.ts",
+    "test:e2e:build": "node scripts/e2e-server.mjs --build-only"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

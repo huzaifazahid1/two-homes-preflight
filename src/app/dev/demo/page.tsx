@@ -1,16 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { Suspense } from "react";
 import { Logo } from "@/components/layout/logo";
+import { Skeleton } from "@/components/ui/skeleton";
 import { env } from "@/lib/env";
 import { db } from "@/lib/firebase/admin";
 import { DemoControls } from "./demo-controls";
 
 export const metadata: Metadata = { title: "Demo tools", robots: { index: false, follow: false } };
-export const dynamic = "force-dynamic";
 
 // /dev/demo (Section A.8): seed/reset the synthetic family and read the dev email outbox.
-// Exists only with DEMO_MODE=true; actions also need the DEV_SECRET.
-export default async function DemoPage() {
+// Exists only with DEMO_MODE=true (checked per request, not at build); actions also need DEV_SECRET.
+export default function DemoPage() {
+  return (
+    <Suspense fallback={<Skeleton className="mx-auto mt-16 h-72 max-w-3xl" />}>
+      <DemoContent />
+    </Suspense>
+  );
+}
+
+async function DemoContent() {
+  await connection();
   if (!env().DEMO_MODE) notFound();
   const snap = await db().collection("devOutbox").orderBy("at", "desc").limit(25).get();
   const mails = snap.docs.map((d) => {

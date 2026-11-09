@@ -62,6 +62,9 @@ if (process.env.E2E_SKIP_BUILD !== "1") {
   const build = spawnSync(next, ["build"], { env, stdio: "inherit", shell: process.platform === "win32" });
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
+// `npm run test:e2e:build`: build alone (less memory pressure than building while the emulators
+// start), then run `npm run test:e2e` with E2E_SKIP_BUILD=1.
+if (process.argv.includes("--build-only")) process.exit(0);
 const server = spawn(next, ["start", "-p", "3100"], { env, stdio: "inherit", shell: process.platform === "win32" });
 const stop = () => {
   server.kill();

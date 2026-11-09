@@ -51,7 +51,7 @@ export function LedgerCards({ rows, quick, filters, dateFmt }: { rows: LedgerRow
                   <div className="shrink-0 text-right">
                     <Money cents={r.totalCents} className="block" />
                     <span className="t-small text-muted-foreground">
-                      {r.owedToMe ? "owed to you" : "you owe"} <Money cents={r.owedCents} />
+                      {r.owedToMe ? `${r.owedByName}'s share` : "your share"} <Money cents={r.owedCents} />
                     </span>
                   </div>
                   <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />

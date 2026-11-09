@@ -23,3 +23,12 @@ Synthetic family: Alex (owner, Family plan), Sara (co-parent, guest), Mia (child
 Edge clips (20 to 30 s): duplicate receipt blocked; re-request after decline blocked for 7 days; hallucinated quote cannot be confirmed; overdue claim on dashboard; free plan shows upgrade on settlement.
 
 Pre-demo checklist: reset + seed; warm up Render; fund platform sandbox balance; sandbox buyer and receiver logins ready; Gemini quota; demo mode toggle ready; two browser profiles (Alex, Sara).
+
+## Phase 4 notes (kept current)
+
+- Reset and seed: `/dev/demo` (needs `DEMO_MODE=true` and `DEV_SECRET`) or `npm run reset` then `npm run seed -- --coparent=<Sara's inbox> --paypal=<owner sandbox receiver email>`. Sign in with the owner credentials it prints.
+- Step 8 needs the Family plan: subscribe on `/app/billing` with a sandbox personal account before recording (the trial starts at once).
+- Step 9 shows "Paid in the app" with the payout batch id on the expense page; "Settled" arrives with the `PAYMENT.PAYOUTS-ITEM.SUCCEEDED` webhook (ngrok locally, Render URL in prod). If the webhook is slow, "Check with PayPal" re-syncs.
+- Step 10: `/app/ledger` on desktop: show the clause chip opening the source view, the Overdue only filter, select two rows and "Export 2 selected".
+- Step 11: `/app/billing`: Family, next payment, covered-volume bar.
+- Extra checklist: platform sandbox balance funded; `PAYPAL_WEBHOOK_ID` matches the app; `npm run invariants` shows zero violations after the run.

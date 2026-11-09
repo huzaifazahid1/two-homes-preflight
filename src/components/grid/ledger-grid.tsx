@@ -61,13 +61,8 @@ export function LedgerGrid({ view, onChanged }: { view: LedgerView; onChanged: (
         filterParams: { comparator: (filterDate: Date, cell: string | null) => (cell ? cmpDay(new Date(cell), filterDate) : -1) },
       },
       { headerName: "Month", field: "month", width: 110, filter: "agTextColumnFilter", hide: true },
-      { headerName: "Child", field: "childName", width: 110, filter: "agTextColumnFilter" },
+      // Order: what a parent scans first (expense, money, status) stays inside 1440 px; the rest scrolls.
       { headerName: "Expense", field: "description", minWidth: 220, flex: 1.4, cellRenderer: DescriptionCell, filter: "agTextColumnFilter", getQuickFilterText: (p) => `${p.data?.description ?? ""} ${(p.data as GridRow)?.vendor ?? ""}` },
-      { headerName: "Category", field: "category", width: 140, filter: "agTextColumnFilter", valueFormatter: (p) => (p.value ? String(p.value).replace(/_/g, " ") : "") },
-      { headerName: "Clause", colId: "clause", minWidth: 220, flex: 1, cellRenderer: ClauseCell, sortable: false, valueGetter: (p) => (p.data && !p.data.isTotal ? p.data.clause?.quote ?? "" : "") },
-      { headerName: "Verdict", field: "verdict", width: 170, cellRenderer: VerdictCell },
-      { headerName: "Approval", field: "approval", width: 170, cellRenderer: ApprovalCell },
-      { headerName: "Settlement", field: "settlement", width: 200, cellRenderer: SettlementCell },
       {
         headerName: "Total", field: "totalCents", width: 120, type: "rightAligned", cellRenderer: MoneyCell, filter: "agNumberColumnFilter",
         filterValueGetter: (p) => (p.data ? p.data.totalCents / 100 : null), filterParams: { buttons: ["reset"] },
@@ -76,6 +71,11 @@ export function LedgerGrid({ view, onChanged }: { view: LedgerView; onChanged: (
         headerName: "Owed", field: "owedCents", width: 120, type: "rightAligned", cellRenderer: MoneyCell, filter: "agNumberColumnFilter",
         filterValueGetter: (p) => (p.data ? p.data.owedCents / 100 : null),
       },
+      { headerName: "Settlement", field: "settlement", width: 200, cellRenderer: SettlementCell },
+      { headerName: "Clause", colId: "clause", minWidth: 220, flex: 1, cellRenderer: ClauseCell, sortable: false, valueGetter: (p) => (p.data && !p.data.isTotal ? p.data.clause?.quote ?? "" : "") },
+      { headerName: "Verdict", field: "verdict", width: 170, cellRenderer: VerdictCell },
+      { headerName: "Approval", field: "approval", width: 170, cellRenderer: ApprovalCell },
+      { headerName: "Child", field: "childName", width: 110, filter: "agTextColumnFilter" },
       { headerName: "Owed by", field: "owedByName", width: 110, filter: "agTextColumnFilter" },
       {
         headerName: "Due", field: "dueAt", width: 130, filter: "agDateColumnFilter",
@@ -83,13 +83,14 @@ export function LedgerGrid({ view, onChanged }: { view: LedgerView; onChanged: (
         cellClassRules: { "text-danger font-medium": (p) => Boolean(p.data && !p.data.isTotal && p.data.isOverdue) },
         filterParams: { comparator: (filterDate: Date, cell: string | null) => (cell ? cmpDay(new Date(cell), filterDate) : -1) },
       },
+      { headerName: "Category", field: "category", width: 140, filter: "agTextColumnFilter", valueFormatter: (p) => (p.value ? String(p.value).replace(/_/g, " ") : "") },
       { headerName: "", colId: "actions", width: 150, sortable: false, filter: false, resizable: false, cellRenderer: ActionsCell },
     ],
     [dateFmt],
   );
 
   const totalRow = useMemo<TotalRow[]>(
-    () => [{ isTotal: true, description: `Total of ${view.rows.length} listed`, totalCents: view.totals.listedTotalCents, owedCents: view.totals.listedOwedCents }],
+    () => [{ isTotal: true, description: `All ${view.rows.length} expenses`, totalCents: view.totals.listedTotalCents, owedCents: view.totals.listedOwedCents }],
     [view],
   );
 
@@ -182,7 +183,7 @@ export function LedgerGrid({ view, onChanged }: { view: LedgerView; onChanged: (
             enableCellTextSelection
             context={{ openSource: (c: { agreementId: string | null; page: number; quote: string }) => c.agreementId && setSource({ agreementId: c.agreementId, page: c.page, quote: c.quote.replace(/…$/, "") }), remind, busyId }}
             onGridReady={(e) => (apiRef.current = e.api)}
-            overlayNoRowsTemplate="<span>No expenses match these filters.</span>"
+            localeText={{ noMatchingRows: "No expenses match these filters.", noRowsToShow: "No expenses yet." }}
           />
         </div>
       ) : (

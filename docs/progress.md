@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-09 (Phase 3)
+Last updated: 2026-11-10 (Phase 4)
 
 ## Done
 
@@ -43,13 +43,24 @@ Last updated: 2026-11-09 (Phase 3)
 
 ## In progress
 
-- Nothing. Waiting for the owner's review of Phase 3.
+- **Phase 4: Money, billing and launch** (branch `phase-4-money-billing-launch`). Code done:
+  - PayPal transport: `paypal/http.ts` (`paypalRequest`: timeout, idempotent retries, token refresh on 401, error mapping), `paypal/sdk.ts` (Server SDK on our token cache), `orders.ts`, `payouts.ts`, `subscriptions.ts`, `webhooks.ts` (signature), `webhook-dispatch.ts` (dedupe + G.7 mapping).
+  - `checkout.ts` (order + capture from `/p/[token]`), `settlement.ts` (capture -> PAID -> payout, status sync, retry, refund, reconcile), `fees.ts`, `entitlement.ts` (sync + 1 h re-sync), `billing.ts`, settlement/billing emails.
+  - Routes: orders, capture, webhook, reconcile, payout retry, refund, billing (get, subscribe, cancel), ledger, dev seed/reset.
+  - UI: PayPal Buttons + breakdown + paid states on `/p/[token]`; payout panel on the expense page; `/app/billing`; `/app/ledger` (AG Grid, phone cards); onboarding Family choice; nav entries; `/dev/demo`.
+  - Daily job reconcile sweep; disconnect guard; payouts sent on connect; invariants 3, 4, 5, 9.
+  - Scripts: `npm run paypal:setup-plans`, `npm run seed`, `npm run reset`.
+  - Tests: 178 unit, 221 integration (PY-1 to PY-18, SB-1 to SB-6, SE-3, SE-7, PC-5, PC-6, ledger) and 8 E2E runs (4 journeys x phone and desktop, incl. `money.spec.ts`: ledger, billing, dark mode) green; typecheck and lint clean. On Windows build first with `npm run test:e2e:build`, then `$env:E2E_SKIP_BUILD="1"; npm run test:e2e`.
+- Not done yet: real sandbox runs (needs owner setup below), landing page refresh, accessibility pass with axe, CI workflow, video, Devpost.
 
 ## Next
 
-- Owner items below, then Phase 4: Money, billing, launch.
+- Owner sandbox setup below, then three sandbox runs from reset, `npm run invariants`, phone + dark mode pass on every screen, recording.
 
 ## Blocked / owner items
+
+- **PayPal sandbox setup (Phase 4):** run `npm run paypal:setup-plans` and set `PAYPAL_FAMILY_PLAN_ID` + `NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID`; create the webhook (ngrok URL for dev, Render URL for prod) with the G.7 events and set `PAYPAL_WEBHOOK_ID`; fund the platform business sandbox account; have the sandbox personal (payer) login ready. Then read one real capture's `paypal_fee` for [Confirm 2] and the duplicate `sender_batch_id` error for [Confirm 6].
+- **Demo deployment:** `DEMO_MODE=true` and `DEV_SECRET` on the demo Render service for `/dev/demo`.
 
 - **"On a phone with real emails" (Phase 3 criterion):** needs `EMAIL_TRANSPORT=resend` and one real Cloudinary upload (keys are in `.env.local`; enable "Allow delivery of PDF and ZIP files" in Cloudinary Security). Verified so far with the dev outbox and a Cloudinary stub.
 - **Deploy the new indexes** with the rules (`npm run firebase:deploy-rules`, owner approval). Without them the daily job and overdue totals fail on the real project.

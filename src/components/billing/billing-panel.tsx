@@ -54,11 +54,15 @@ export function BillingPanel({ initial, familyId, timeZone }: { initial: Billing
             </p>
           ) : null}
         </div>
-        <dl className="grid gap-3 text-[15px] sm:grid-cols-2">
-          {sub?.status === "ACTIVE" && sub.trialEndsAt ? <Row label="Free trial ends" value={day(sub.trialEndsAt)} /> : null}
-          {sub?.status === "ACTIVE" && sub.nextBillingTime ? <Row label="Next payment" value={`${day(sub.nextBillingTime)}, $${(FAMILY_PRICE_CENTS / 100).toFixed(2)}`} /> : null}
-          {sub?.status === "CANCELLED" && sub.paidThrough && b.entitled ? <Row label="Family features until" value={day(sub.paidThrough)} /> : null}
-        </dl>
+        {b.entitled ? (
+          <dl className="grid gap-3 text-[15px] sm:grid-cols-2">
+            {sub?.status === "ACTIVE" && sub.trialEndsAt ? <Row label="Free trial ends" value={day(sub.trialEndsAt)} /> : null}
+            {sub?.status === "ACTIVE" && sub.nextBillingTime ? <Row label="Next payment" value={`${day(sub.nextBillingTime)}, $${(FAMILY_PRICE_CENTS / 100).toFixed(2)}`} /> : null}
+            {sub?.status === "CANCELLED" && sub.paidThrough ? <Row label="Family features until" value={day(sub.paidThrough)} /> : null}
+          </dl>
+        ) : (
+          <p className="text-muted-foreground">Agreement checks, approvals, receipts and claims. Settlement is paid outside the app and recorded here.</p>
+        )}
         {b.entitled ? (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-3 text-sm">
