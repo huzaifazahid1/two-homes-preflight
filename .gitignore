@@ -42,9 +42,12 @@ next-env.d.ts
 
 
 !.env.example
+!.env.test
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+hs_err_pid*.log
+replay_pid*.log
 .firebase/
 /test-results/
 /playwright-report/
