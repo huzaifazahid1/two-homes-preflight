@@ -41,9 +41,10 @@ export function ClauseCell({ data, context }: P & { context: { openSource: (c: N
           type="button"
           className="shrink-0 rounded-md bg-clause px-1.5 py-0.5 text-xs font-medium text-clause-ink outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => context.openSource(c)}
-          aria-label={`Open page ${c.page} of the agreement`}
         >
+          {/* The accessible name starts with the visible text (WCAG 2.5.3, voice control). */}
           p. {c.page}
+          <span className="sr-only">, open page {c.page} of the agreement</span>
         </button>
       ) : null}
     </div>
