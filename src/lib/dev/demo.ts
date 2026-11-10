@@ -70,17 +70,20 @@ async function idTokenFor(uid: string): Promise<string> {
   return body.idToken;
 }
 
-export type SeedInput = { coParentEmail: string; ownerPayPalEmail?: string };
+export type SeedInput = { coParentEmail: string; ownerPayPalEmail?: string; ownerName?: string; coParentName?: string };
 export type SeedResult = { ownerEmail: string; ownerPassword: string; familyId: string; expenses: string[] };
 
-/** Alex (owner), Sara (co-parent, guest), Mia (child); the fixture agreement active; two expenses. */
+/** Alex (owner), Sara (co-parent, guest), Mia (child); the fixture agreement active; two expenses. Names can be swapped. */
 export async function seedDemo(input: SeedInput): Promise<SeedResult> {
-  const ownerEmail = `alex.${newId(6).toLowerCase()}@${DEMO_DOMAIN}`;
+  const ownerName = input.ownerName ?? "Alex Rivera";
+  const coParentName = input.coParentName ?? "Sara Rivera";
+  const prefix = ownerName.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "") || "owner";
+  const ownerEmail = `${prefix}.${newId(6).toLowerCase()}@${DEMO_DOMAIN}`;
   const ownerPassword = `Demo-${newId(12)}`;
-  const user = await adminAuth().createUser({ email: ownerEmail, password: ownerPassword, emailVerified: true, displayName: "Alex Rivera" });
+  const user = await adminAuth().createUser({ email: ownerEmail, password: ownerPassword, emailVerified: true, displayName: ownerName });
   const jar = new Jar();
   await jar.call(createSession, "/api/auth/session", { body: { idToken: await idTokenFor(user.uid), timeZone: "America/New_York" } });
-  await jar.call(patchMe, "/api/me", { method: "PATCH", body: { displayName: "Alex Rivera", completeStep: "profile" } });
+  await jar.call(patchMe, "/api/me", { method: "PATCH", body: { displayName: ownerName, completeStep: "profile" } });
 
   const text = readFileSync(join(process.cwd(), "fixtures", "agreement", "demo-agreement.md"), "utf8");
   const agreementId = (await jar.call<{ agreement: { id: string } }>(uploadAgreement, "/api/agreements", { body: { text } })).agreement.id as string;
@@ -94,7 +97,7 @@ export async function seedDemo(input: SeedInput): Promise<SeedResult> {
   await jar.call(patchMe, "/api/me", { method: "PATCH", body: { completeStep: "agreement" } });
 
   const child = (await jar.call<{ child: { id: string } }>(addChild, "/api/family/children", { body: { firstName: "Mia", birthYear: 2016 } })).child;
-  const family = (await jar.call<{ family: { id: string } }>(upsertFamily, "/api/family", { body: { coParent: { name: "Sara Rivera", email: input.coParentEmail } } })).family;
+  const family = (await jar.call<{ family: { id: string } }>(upsertFamily, "/api/family", { body: { coParent: { name: coParentName, email: input.coParentEmail } } })).family;
   await jar.call(patchMe, "/api/me", { method: "PATCH", body: { completeStep: "family" } });
   await jar.call(sendInvite, "/api/family/invite");
   await jar.call(patchMe, "/api/me", { method: "PATCH", body: { completeStep: "invite" } });

@@ -11,6 +11,7 @@ import { SuccessCheck } from "@/components/domain/success-check";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError, errorMessage } from "@/hooks/api";
+import { formatCents } from "@/lib/money";
 import { FAMILY_PRICE_CENTS, FAMILY_TRIAL_DAYS } from "@/lib/plans";
 import { publicEnv } from "@/lib/public-env";
 import type { BillingView } from "@/types/views";
@@ -57,7 +58,7 @@ export function BillingPanel({ initial, familyId, timeZone }: { initial: Billing
         {b.entitled ? (
           <dl className="grid gap-3 text-[15px] sm:grid-cols-2">
             {sub?.status === "ACTIVE" && sub.trialEndsAt ? <Row label="Free trial ends" value={day(sub.trialEndsAt)} /> : null}
-            {sub?.status === "ACTIVE" && sub.nextBillingTime ? <Row label="Next payment" value={`${day(sub.nextBillingTime)}, $${(FAMILY_PRICE_CENTS / 100).toFixed(2)}`} /> : null}
+            {sub?.status === "ACTIVE" && sub.nextBillingTime ? <Row label="Next payment" value={`${day(sub.nextBillingTime)}, ${formatCents(FAMILY_PRICE_CENTS)}`} /> : null}
             {sub?.status === "CANCELLED" && sub.paidThrough ? <Row label="Family features until" value={day(sub.paidThrough)} /> : null}
           </dl>
         ) : (

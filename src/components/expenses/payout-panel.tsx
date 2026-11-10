@@ -35,12 +35,12 @@ export function PayoutPanel({ e, money, isBuyer, isOwner, payer, receiver }: { e
                 : `Paid with PayPal and sent to ${you}.`;
 
   return (
-    <section aria-labelledby="payout-h" aria-live="polite" className="space-y-3 rounded-[10px] border border-border bg-surface-2 p-4">
+    <section aria-labelledby="payout-h" className="space-y-3 rounded-[10px] border border-border bg-surface-2 p-4">
       <h3 id="payout-h" className="flex items-center gap-2 font-medium">
         {s === "PAYOUT_FAILED" ? <AlertTriangle aria-hidden className="size-4 text-danger" /> : <ArrowRightLeft aria-hidden className="size-4 text-muted-foreground" />}
         Paid in the app
       </h3>
-      <p className="text-muted-foreground">{line}</p>
+      <p aria-live="polite" className="text-muted-foreground">{line}</p>
       <dl className="t-small grid gap-x-6 gap-y-1 text-muted-foreground sm:grid-cols-2">
         {money.captured ? (
           <div className="flex gap-1">

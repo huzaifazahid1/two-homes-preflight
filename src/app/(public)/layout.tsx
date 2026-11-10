@@ -19,14 +19,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </Link>
         </nav>
       </header>
-      <main className="flex-1">{children}</main>
+      <main id="main" tabIndex={-1} className="outline-none flex-1">{children}</main>
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-[1200px] flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>Sandbox demo for the PayPal AI Hackathon 2026. All data is synthetic. Not legal advice.</p>
-          <nav aria-label="Footer" className="flex gap-4">
-            <Link className="hover:text-foreground" href="/pricing">Pricing</Link>
-            <Link className="hover:text-foreground" href="/legal/terms">Terms</Link>
-            <Link className="hover:text-foreground" href="/legal/privacy">Privacy</Link>
+          <nav aria-label="Footer" className="-mx-2 flex gap-1">
+            <Link className="inline-flex min-h-11 items-center rounded-md px-2 hover:text-foreground" href="/pricing">Pricing</Link>
+            <Link className="inline-flex min-h-11 items-center rounded-md px-2 hover:text-foreground" href="/legal/terms">Terms</Link>
+            <Link className="inline-flex min-h-11 items-center rounded-md px-2 hover:text-foreground" href="/legal/privacy">Privacy</Link>
           </nav>
         </div>
       </footer>

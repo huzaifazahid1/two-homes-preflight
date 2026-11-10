@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     // E2E production build (scripts/e2e-server.mjs) and Playwright artifacts.
     ".next-e2e/**",
+    // Sandbox journey dev build (playwright.sandbox.config.ts).
+    ".next-sandbox/**",
     "test-results/**",
     "playwright-report/**",
     "out/**",

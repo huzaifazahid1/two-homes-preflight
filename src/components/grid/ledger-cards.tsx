@@ -35,7 +35,7 @@ export function LedgerCards({ rows, quick, filters, dateFmt }: { rows: LedgerRow
           <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
             {items.map((r) => (
               <li key={r.id}>
-                <Link href={`/app/expenses/${r.id}`} className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none">
+                <Link href={`/app/expenses/${r.id}`} className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <p className="truncate font-medium">{r.description}</p>
                     <p className="t-small truncate text-muted-foreground">

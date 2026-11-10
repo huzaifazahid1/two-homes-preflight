@@ -13,7 +13,7 @@ export default function ApprovalPage() {
       <header className="mx-auto flex max-w-2xl items-center px-4 py-3">
         <Logo href="/" />
       </header>
-      <main className="mx-auto max-w-2xl px-4 pb-16 pt-2">
+      <main id="main" tabIndex={-1} className="outline-none mx-auto max-w-2xl px-4 pb-16 pt-2">
         <Suspense fallback={<Skeleton className="h-72 w-full" />}>
           <ApprovalLink />
         </Suspense>

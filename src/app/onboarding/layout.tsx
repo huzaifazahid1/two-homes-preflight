@@ -8,7 +8,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         <Logo href="/onboarding" />
         <SignOutButton variant="ghost" />
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-2 sm:px-6 sm:pb-12">{children}</main>
+      <main id="main" tabIndex={-1} className="outline-none mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-2 sm:px-6 sm:pb-12">{children}</main>
     </div>
   );
 }

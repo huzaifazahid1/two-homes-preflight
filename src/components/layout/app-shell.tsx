@@ -86,7 +86,7 @@ export function AppShell({ children, userName, familyLabel }: { children: React.
           <div className="hidden lg:block" />
           <NotificationBell />
         </header>
-        <main className={cn("mx-auto w-full flex-1 px-4 pt-6 lg:px-8 lg:pb-12", isActive(pathname, "/app/ledger") ? "max-w-none" : "max-w-[1200px]", focused ? "pb-32" : "pb-28")}>{children}</main>
+        <main id="main" tabIndex={-1} className={cn("outline-none mx-auto w-full flex-1 px-4 pt-6 lg:px-8 lg:pb-12", isActive(pathname, "/app/ledger") ? "max-w-none" : "max-w-[1200px]", focused ? "pb-32" : "pb-28")}>{children}</main>
       </div>
 
       {focused ? null : <BottomTabs pathname={pathname} />}

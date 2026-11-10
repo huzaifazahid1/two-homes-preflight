@@ -37,7 +37,7 @@ export function DemoControls() {
     <section aria-labelledby="ctl-h" className="space-y-4 rounded-[14px] border border-border bg-surface p-5">
       <h2 id="ctl-h" className="t-h3">Seed and reset</h2>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="secret" label="DEV_SECRET" value={secret} onChange={setSecret} type="password" />
+        <Field id="secret" label="Dev secret" value={secret} onChange={setSecret} type="password" />
         <Field id="cop" label="Co-parent email (Sara)" value={coParent} onChange={setCoParent} type="email" />
         <Field id="payto" label="Owner PayPal sandbox email (optional)" value={payTo} onChange={setPayTo} type="email" />
       </div>

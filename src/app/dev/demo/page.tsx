@@ -33,7 +33,7 @@ async function DemoContent() {
       <header className="mx-auto flex max-w-3xl items-center px-4 py-3">
         <Logo href="/" />
       </header>
-      <main className="mx-auto max-w-3xl space-y-8 px-4 pb-16 pt-2">
+      <main id="main" tabIndex={-1} className="outline-none mx-auto max-w-3xl space-y-8 px-4 pb-16 pt-2">
         <div>
           <h1 className="t-h1">Demo tools</h1>
           <p className="mt-1 text-muted-foreground">Synthetic data only. PayPal stays in sandbox.</p>

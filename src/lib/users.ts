@@ -92,7 +92,7 @@ export async function meView(user: UserDoc) {
 }
 export type MeView = Awaited<ReturnType<typeof meView>>;
 
-/** The Family plan (Phase 4) is not wired yet; outside production (or in DEMO_MODE) the plan step says so. */
+/** Phase 1 flag kept on the `me` view for compatibility: true outside production or in DEMO_MODE. No UI reads it since Phase 4 wired the Family plan. */
 export function placeholderStepsAllowed(): boolean {
   const e = env();
   return e.NODE_ENV !== "production" || e.DEMO_MODE;

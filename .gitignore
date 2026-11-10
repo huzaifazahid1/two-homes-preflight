@@ -54,3 +54,4 @@ replay_pid*.log
 /coverage/
 *.service-account.json
 /.next-e2e/
+/.next-sandbox/

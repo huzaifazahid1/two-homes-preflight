@@ -18,7 +18,8 @@
     "invariants": "tsx --env-file=.env.local --conditions=react-server scripts/check-invariants.ts",
     "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts",
     "paypal:setup-plans": "tsx --env-file=.env.local --conditions=react-server scripts/setup-paypal-plans.ts",
-    "test:e2e:build": "node scripts/e2e-server.mjs --build-only"
+    "test:e2e:build": "node scripts/e2e-server.mjs --build-only",
+    "test:sandbox": "playwright test -c playwright.sandbox.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
