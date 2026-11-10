@@ -128,3 +128,28 @@ sequenceDiagram
 ```
 
 A GitHub Actions schedule calls `POST /api/jobs/daily`: it persists expired approvals, sends the 3-day approval reminder and, for Family-plan families, payment reminders. Every reminder has a dedupe key, so a second run sends nothing.
+
+## Pay, payout and webhooks (Phase 4)
+
+```mermaid
+sequenceDiagram
+  participant Payer as Paying parent (/p/[token])
+  participant App as Next.js (route + lib/checkout, lib/settlement)
+  participant DB as Firestore
+  participant PP as PayPal sandbox
+  Payer->>App: createOrder (link + code)
+  App->>DB: entitled? payable? fee line (usage)
+  App->>PP: POST /v2/checkout/orders (PayPal-Request-Id order-{id}-{n}, custom_id)
+  App->>DB: payments.attempts += order
+  Payer->>PP: approve in PayPal popup
+  Payer->>App: onApprove -> capture
+  App->>PP: POST /orders/{id}/capture (capture-{orderId})
+  App->>DB: transition CAPTURE_COMPLETED -> PAID, usage += owed
+  App->>PP: POST /v1/payments/payouts (sender_batch_id {id}-{n})
+  App->>DB: transition PAYOUT_CREATED -> PAYOUT_PROCESSING
+  PP-->>App: webhook PAYMENT.PAYOUTS-ITEM.SUCCEEDED
+  App->>PP: verify-webhook-signature
+  App->>DB: webhookEvents/{id} create (dedupe), transition PAYOUT_SUCCESS -> SETTLED, notify both
+```
+
+Recovery paths: a capture `PENDING` waits for `PAYMENT.CAPTURE.COMPLETED`; a lost payout response, an unfunded platform or a missed webhook is fixed by reconcile (expense page button, daily job) with the same keys, so nothing is paid twice. A failed payout can be retried after the receiver reconnects PayPal (new attempt) or refunded to the payer.

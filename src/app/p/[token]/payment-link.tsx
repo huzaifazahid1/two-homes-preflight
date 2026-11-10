@@ -1,6 +1,7 @@
 "use client";
 
 import { PendingLabel } from "@/components/domain/pending-label";
+import { PayPalCheckout } from "@/components/payments/paypal-checkout";
 import { Info } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "next/navigation";
@@ -26,7 +27,7 @@ type Load = { kind: "loading" } | { kind: "ok"; s: PaymentLinkSummary } | { kind
 
 const day = (iso: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(iso));
 const todayLocal = () => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-const WAITING = new Set(["EXTERNAL_PAYMENT_REPORTED", "DISPUTED"]);
+const WAITING = new Set(["EXTERNAL_PAYMENT_REPORTED", "DISPUTED", "PAID", "PAYOUT_PROCESSING", "PAYOUT_UNCLAIMED"]);
 const POLL_MS = 10_000;
 
 export function PaymentLink() {
@@ -56,7 +57,7 @@ export function PaymentLink() {
   }, [fetchSummary]);
 
   // Guests have no Firebase session: poll while waiting for the other parent (Section E.8).
-  const waiting = load.kind === "ok" && WAITING.has(load.s.state);
+  const waiting = load.kind === "ok" && (WAITING.has(load.s.state) || load.s.inApp.pending);
   useEffect(() => {
     if (!waiting) return;
     const id = window.setInterval(() => {
@@ -124,15 +125,27 @@ function Actions({ s, token, onChanged }: { s: PaymentLinkSummary; token: string
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div key={s.state} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.14 } }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} className="space-y-6">
-        {s.state === "AWAITING_PAYMENT" || s.state === "PAYMENT_FAILED" ? (
+        {(s.state === "AWAITING_PAYMENT" || s.state === "PAYMENT_FAILED") && s.inApp.pending ? (
+          <section aria-live="polite" className="rounded-[14px] border border-border bg-surface p-5">
+            <h2 className="t-h3">Payment pending with PayPal</h2>
+            <p className="mt-2 text-muted-foreground">PayPal is still processing your payment. Nothing more to do; this page updates when PayPal confirms it.</p>
+          </section>
+        ) : s.state === "AWAITING_PAYMENT" || s.state === "PAYMENT_FAILED" ? (
           <>
-            <div className="flex gap-3 rounded-[10px] border border-border bg-surface-2 p-4">
-              <Info aria-hidden className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <p className="t-small text-muted-foreground">Paying with PayPal here is part of the Family plan. You can pay {receiver} any way you both use, then tell them below.</p>
-            </div>
+            {s.state === "PAYMENT_FAILED" ? <p className="t-small rounded-md bg-danger-bg px-3 py-2 text-danger">The last payment did not go through. Nothing was charged. You can try again.</p> : null}
+            {s.inApp.available && s.inApp.breakdown ? (
+              <PayPalCheckout token={token} breakdown={s.inApp.breakdown} receiver={receiver} onDone={onChanged} />
+            ) : (
+              <div className="flex gap-3 rounded-[10px] border border-border bg-surface-2 p-4">
+                <Info aria-hidden className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <p className="t-small text-muted-foreground">Paying with PayPal here is part of the Family plan. You can pay {receiver} any way you both use, then tell them below.</p>
+              </div>
+            )}
             <ReportForm token={token} receiver={receiver} onDone={onChanged} />
           </>
         ) : null}
+
+        {s.inApp.payout && s.inApp.payout !== "sent" ? <PaidStatus phase={s.inApp.payout} receiver={receiver} owedCents={s.owedCents} /> : null}
 
         {s.state === "EXTERNAL_PAYMENT_REPORTED" && s.externalReport ? (
           <section aria-live="polite" className="rounded-[14px] border border-border bg-surface p-5">
@@ -148,7 +161,7 @@ function Actions({ s, token, onChanged }: { s: PaymentLinkSummary; token: string
           <section aria-live="polite" className="space-y-3 rounded-[14px] border border-border bg-surface p-5">
             <SuccessCheck label="Settled" />
             <h2 className="t-h2">Settled</h2>
-            <p className="text-muted-foreground">Nothing more is owed for this expense.{s.contestUntil && s.canDispute ? ` If you did not pay it, you can contest until ${day(s.contestUntil)}.` : ""}</p>
+            <p className="text-muted-foreground">{s.state === "SETTLED" ? `${receiver} received your payment through PayPal. ` : ""}Nothing more is owed for this expense.{s.contestUntil && s.canDispute ? ` If you did not pay it, you can contest until ${day(s.contestUntil)}.` : ""}</p>
           </section>
         ) : null}
 
@@ -166,6 +179,26 @@ function Actions({ s, token, onChanged }: { s: PaymentLinkSummary; token: string
         {s.canDispute ? <DisputeForm expenseId={s.expenseId} owedCents={s.owedCents} onDone={onChanged} /> : null}
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+const PHASE: Record<"waiting_connection" | "sending" | "unclaimed" | "failed" | "refunded", { title: string; body: (r: string) => string }> = {
+  sending: { title: "Paid", body: (r) => `PayPal is sending the money to ${r}. This page updates by itself.` },
+  waiting_connection: { title: "Paid", body: (r) => `Your payment went through. It goes to ${r} as soon as they connect their PayPal account; we told them.` },
+  unclaimed: { title: "Paid", body: (r) => `Your payment went through. PayPal is holding it until ${r} claims it in PayPal.` },
+  failed: { title: "Paid", body: (r) => `Your payment went through, but PayPal could not deliver it to ${r} yet. They can fix their PayPal connection, or you get a refund.` },
+  refunded: { title: "Refunded", body: () => "PayPal could not deliver this payment, so it was refunded to you." },
+};
+
+function PaidStatus({ phase, receiver, owedCents }: { phase: keyof typeof PHASE; receiver: string; owedCents: number }) {
+  const p = PHASE[phase];
+  return (
+    <section aria-live="polite" className="space-y-2 rounded-[14px] border border-border bg-surface p-5">
+      <h2 className="t-h2">{p.title}</h2>
+      <p className="text-muted-foreground">
+        <Money cents={owedCents} /> for your share. {p.body(receiver)}
+      </p>
+    </section>
   );
 }
 

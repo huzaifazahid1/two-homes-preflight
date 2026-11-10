@@ -163,7 +163,7 @@ describe("Log in with PayPal", () => {
     const { state } = await startFlow(owner.jar, "for=owner&returnTo=/app/settings");
     await expectOk(call(callback, { method: "POST", path: "/api/paypal/connect/callback", jar: owner.jar, body: { code: "d1", state } }));
 
-    await db().collection("expenses").doc(`exp_${familyId}`).set({ familyId, memberUids: [owner.uid], settlement: { state: "PAYOUT_PROCESSING" } });
+    await db().collection("expenses").doc(`exp_${familyId}`).set({ familyId, memberUids: [owner.uid], paidByRole: "owner", settlement: { state: "PAYOUT_PROCESSING" } });
     const blocked = await call(disconnectRoute, { method: "DELETE", path: "/api/paypal/connect", jar: owner.jar });
     expect(blocked.status).toBe(409);
 

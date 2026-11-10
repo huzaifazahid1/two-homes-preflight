@@ -5,6 +5,7 @@
 import { spawnSync, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 
 // Receipt storage stub for E2E only (tests never reach the real Cloudinary account): answers
@@ -39,9 +40,7 @@ const cloud = createServer(async (req, res) => {
 cloud.listen(CLOUD_PORT, "127.0.0.1");
 
 const testEnv = parseEnv(readFileSync(new URL("../.env.test", import.meta.url), "utf8"));
-const env = {
-  ...process.env,
-  ...testEnv,
+const overrides = {
   E2E: "true",
   DEMO_MODE: "true",
   DEV_SECRET: "e2e-dev-secret-0123456789abcdef0123456789",
@@ -55,14 +54,36 @@ const env = {
   CLOUDINARY_API_BASE: `http://127.0.0.1:${CLOUD_PORT}`,
   NEXT_DIST_DIR: ".next-e2e",
   NEXT_TELEMETRY_DISABLED: "1",
+  // Fee and plan constants pinned to the env.ts defaults so local and CI runs match.
+  PLAN_COVERED_VOLUME_CENTS: "20000",
+  FEE_PERCENT_BPS: "349",
+  FEE_FIXED_CENTS: "49",
 };
 
-const next = process.platform === "win32" ? "node_modules\\.bin\\next.cmd" : "node_modules/.bin/next";
+// `next build` / `next start` also load .env.local, filling every key not already in the process
+// environment (an empty value counts as set). Blank each .env.local key that neither .env.test nor
+// the overrides set, so a local run sees the same configuration as CI, where .env.local is absent.
+const blanked = {};
+try {
+  for (const key of Object.keys(parseEnv(readFileSync(new URL("../.env.local", import.meta.url), "utf8")))) {
+    if (!(key in testEnv) && !(key in overrides)) blanked[key] = "";
+  }
+} catch (err) {
+  if (err?.code !== "ENOENT") throw err;
+}
+const env = { ...process.env, ...blanked, ...testEnv, ...overrides };
+
+// Next's own JS entry run by this Node binary: no shell on any platform (no DEP0190 warning), and
+// stop() then ends `next start` itself rather than only a cmd.exe wrapper on Windows.
+const next = fileURLToPath(new URL("../node_modules/next/dist/bin/next", import.meta.url));
 if (process.env.E2E_SKIP_BUILD !== "1") {
-  const build = spawnSync(next, ["build"], { env, stdio: "inherit", shell: process.platform === "win32" });
+  const build = spawnSync(process.execPath, [next, "build"], { env, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
-const server = spawn(next, ["start", "-p", "3100"], { env, stdio: "inherit", shell: process.platform === "win32" });
+// `npm run test:e2e:build`: build alone (less memory pressure than building while the emulators
+// start), then run `npm run test:e2e` with E2E_SKIP_BUILD=1.
+if (process.argv.includes("--build-only")) process.exit(0);
+const server = spawn(process.execPath, [next, "start", "-p", "3100"], { env, stdio: "inherit" });
 const stop = () => {
   server.kill();
   cloud.close();

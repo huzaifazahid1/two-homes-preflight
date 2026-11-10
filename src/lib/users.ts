@@ -92,7 +92,7 @@ export async function meView(user: UserDoc) {
 }
 export type MeView = Awaited<ReturnType<typeof meView>>;
 
-/** The Family plan (Phase 4) is not wired yet; outside production (or in DEMO_MODE) the plan step says so. */
+/** Phase 1 flag kept on the `me` view for compatibility: true outside production or in DEMO_MODE. No UI reads it since Phase 4 wired the Family plan. */
 export function placeholderStepsAllowed(): boolean {
   const e = env();
   return e.NODE_ENV !== "production" || e.DEMO_MODE;
@@ -125,7 +125,8 @@ function prerequisiteError(step: OnboardingStep, user: UserDoc, family: FamilyDo
     case "paypal":
       return family?.payout.owner ? null : "Connect your PayPal account first.";
     case "plan":
-      return patch.plan === "free" ? null : "Choose a plan.";
+      // "family" finishes onboarding and opens Billing, where PayPal confirms the subscription.
+      return patch.plan === "free" || patch.plan === "family" ? null : "Choose a plan.";
     default:
       return "Onboarding is already complete.";
   }
@@ -168,7 +169,8 @@ export async function patchMe(sessionUser: SessionUser, patch: MePatch): Promise
           // The family shell is created with the profile so the agreement step has a family to attach to.
           ensureFamilyInTx(tx, { uid: user.uid, email: user.email, displayName: patch.displayName ?? user.displayName }, user.familyId, updates);
         }
-        if (current === "plan" && familyRef) {
+        // Display tier only; "family" is written when PayPal confirms the subscription (entitlement.ts).
+        if (current === "plan" && familyRef && patch.plan === "free") {
           tx.update(familyRef, { "plan.tier": "free", updatedAt: FieldValue.serverTimestamp() });
         }
       }

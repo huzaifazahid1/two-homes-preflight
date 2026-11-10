@@ -120,7 +120,7 @@ async function Detail({ params }: { params: PageProps<"/app/expenses/[id]">["par
                 </Step>
                 {CLAIM_VISIBLE.has(e.settlement.state) ? (
                   <Step title="Payment">
-                    <ClaimStep e={e} dispute={detail.dispute} me={me} names={names} dueTerms={detail.dueTerms} timeZone={tz} />
+                    <ClaimStep e={e} dispute={detail.dispute} me={me} names={names} dueTerms={detail.dueTerms} timeZone={tz} money={detail.money} isOwner={me === "owner"} />
                   </Step>
                 ) : null}
                 <div className="border-t border-border pt-4">

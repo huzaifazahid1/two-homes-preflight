@@ -370,7 +370,9 @@ export async function recomputeForRules(familyId: string, ruleVersionId: string,
 
 /** GET /api/expenses/:id with the timeline. */
 export async function getExpense(ctx: FamilyContext, id: string, requestId?: string) {
-  const e = await loadFamilyExpense(ctx, id, requestId);
+  let e = await loadFamilyExpense(ctx, id, requestId);
+  const { moneyStatus, refreshPayoutIfStale } = await import("@/lib/data/money-status");
+  if (await refreshPayoutIfStale(id, e, requestId)) e = await loadFamilyExpense(ctx, id, requestId);
   const [rv, events, receiptSnap, disputeSnap] = await Promise.all([
     loadRuleVersion(e.ruleVersionId),
     expensesCol().doc(id).collection("events").orderBy("at").limit(200).get(),
@@ -391,6 +393,7 @@ export async function getExpense(ctx: FamilyContext, id: string, requestId?: str
     dispute: disputeSnap.exists ? disputeView(disputeSnap.data() as DisputeDoc) : null,
     dueTerms: { days: terms.days, clause: terms.clause, source: terms.source, previewDueAt: new Date(now().getTime() + terms.days * DAY_MS).toISOString() },
     me: actorOf(ctx).kind,
+    money: await moneyStatus(id, e, ctx.family),
   };
 }
 export type ExpenseDetail = Awaited<ReturnType<typeof getExpense>>;

@@ -7,16 +7,19 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run --project unit",
     "test:integration": "firebase emulators:exec --only firestore,auth --project demo-two-homes \"vitest run --project integration\"",
     "test:e2e": "playwright test",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
-    "seed": "tsx --env-file=.env.local scripts/seed-demo.ts",
-    "reset": "tsx --env-file=.env.local scripts/reset-demo.ts",
+    "seed": "tsx --env-file=.env.local --conditions=react-server scripts/seed-demo.ts",
+    "reset": "tsx --env-file=.env.local --conditions=react-server scripts/reset-demo.ts",
     "invariants": "tsx --env-file=.env.local --conditions=react-server scripts/check-invariants.ts",
-    "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts"
+    "ai:check-extraction": "tsx --env-file=.env.local --conditions=react-server scripts/check-extraction.ts",
+    "paypal:setup-plans": "tsx --env-file=.env.local --conditions=react-server scripts/setup-paypal-plans.ts",
+    "test:e2e:build": "node scripts/e2e-server.mjs --build-only",
+    "test:sandbox": "playwright test -c playwright.sandbox.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -45,6 +48,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.65.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "24.19.2",

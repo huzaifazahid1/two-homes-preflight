@@ -14,12 +14,12 @@ export function useCompleteStep(step: Exclude<OnboardingStep, "done">) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function complete(extra: Record<string, unknown> = {}) {
+  async function complete(extra: Record<string, unknown> = {}, opts: { then?: string } = {}) {
     setBusy(true);
     setError(null);
     try {
       const { me } = await api<{ me: MeView }>("/api/me", { method: "PATCH", body: { completeStep: step, ...extra } });
-      router.push(me.onboardingStep === "done" ? "/app" : `/onboarding/${me.onboardingStep}`);
+      router.push(me.onboardingStep === "done" ? (opts.then ?? "/app") : `/onboarding/${me.onboardingStep}`);
       router.refresh();
     } catch (e) {
       setError(errorMessage(e));

@@ -86,7 +86,7 @@ export function AppShell({ children, userName, familyLabel }: { children: React.
           <div className="hidden lg:block" />
           <NotificationBell />
         </header>
-        <main className={cn("mx-auto w-full max-w-[1200px] flex-1 px-4 pt-6 lg:px-8 lg:pb-12", focused ? "pb-32" : "pb-28")}>{children}</main>
+        <main id="main" tabIndex={-1} className={cn("outline-none mx-auto w-full flex-1 px-4 pt-6 lg:px-8 lg:pb-12", isActive(pathname, "/app/ledger") ? "max-w-none" : "max-w-[1200px]", focused ? "pb-32" : "pb-28")}>{children}</main>
       </div>
 
       {focused ? null : <BottomTabs pathname={pathname} />}
@@ -96,7 +96,7 @@ export function AppShell({ children, userName, familyLabel }: { children: React.
 
 function BottomTabs({ pathname }: { pathname: string }) {
   const tabs = [NAV[0], NAV[1], null, NAV[2]] as const;
-  const moreActive = isActive(pathname, "/app/settings") || isActive(pathname, "/app/agreement");
+  const moreActive = ["/app/settings", "/app/agreement", "/app/ledger", "/app/billing"].some((h) => isActive(pathname, h));
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-safe lg:hidden">
       <LayoutGroup id="tabs">
