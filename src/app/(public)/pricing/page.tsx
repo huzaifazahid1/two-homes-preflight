@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { formatCents } from "@/lib/money";
+import { FAMILY_PRICE_CENTS, FAMILY_TRIAL_DAYS } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Pricing" };
 
@@ -17,7 +19,7 @@ const FAMILY = [
   "Everything in Free",
   "Unlimited extraction runs and amendments",
   "Pay and get paid in the app through PayPal",
-  "Processing fees covered up to $200 a month",
+  "Processing fees covered up to a monthly amount of claims",
   "Automatic reminders before and after the due date",
   "Unlimited AI receipt reads",
 ];
@@ -33,7 +35,7 @@ export default function PricingPage() {
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Plan name="Free" price="$0" note="Free for as long as you like" items={FREE} cta="Start free" />
-        <Plan name="Family" price="$7.99" per="a month" note="14-day free trial, paid through PayPal" items={FAMILY} cta="Start with Family" featured />
+        <Plan name="Family" price={formatCents(FAMILY_PRICE_CENTS)} per="a month" note={`${FAMILY_TRIAL_DAYS}-day free trial, paid through PayPal`} items={FAMILY} cta="Start with Family" featured />
       </div>
     </div>
   );

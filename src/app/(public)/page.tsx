@@ -126,7 +126,7 @@ export default function LandingPage() {
           </p>
           <ol className="mt-8 flex flex-col gap-2 md:flex-row md:items-stretch md:gap-3">
             {MONEY_PATH.map((step, i) => (
-              <li key={step.who} className="contents">
+              <li key={step.who} className="flex flex-1 flex-col gap-2 md:flex-row md:items-stretch md:gap-3">
                 <div className="flex flex-1 items-center justify-between gap-4 rounded-[10px] border border-border bg-background p-4">
                   <div>
                     <p className="font-medium">{step.who}</p>

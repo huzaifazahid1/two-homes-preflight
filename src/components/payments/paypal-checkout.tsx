@@ -3,7 +3,7 @@
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { useState } from "react";
 import { Money } from "@/components/domain/money";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PayPalFrame } from "@/components/payments/paypal-frame";
 import { api, ApiError, errorMessage } from "@/hooks/api";
 import { publicEnv } from "@/lib/public-env";
 import type { FeeBreakdown } from "@/types/views";
@@ -57,7 +57,7 @@ export function PayPalCheckout({ token, breakdown, receiver, onDone }: { token: 
         options={{ clientId: publicEnv().NEXT_PUBLIC_PAYPAL_CLIENT_ID, currency: "USD", intent: "capture", components: "buttons", disableFunding: "paylater,credit" }}
         deferLoading={false}
       >
-        <ButtonsWithFallback>
+        <PayPalFrame>
           <PayPalButtons
             style={{ layout: "vertical", shape: "rect", label: "pay", height: 48 }}
             disabled={busy}
@@ -92,7 +92,7 @@ export function PayPalCheckout({ token, breakdown, receiver, onDone }: { token: 
             onCancel={() => setNote({ kind: "info", text: "Payment cancelled. Nothing was charged." })}
             onError={() => setNote((n) => n ?? { kind: "error", text: "PayPal could not start the payment. Nothing was charged. Please try again." })}
           />
-        </ButtonsWithFallback>
+        </PayPalFrame>
       </PayPalScriptProvider>
     </section>
   );
@@ -101,14 +101,4 @@ export function PayPalCheckout({ token, breakdown, receiver, onDone }: { token: 
 function errorWithId(e: unknown) {
   const id = e instanceof ApiError && e.requestId ? ` (reference ${e.requestId})` : "";
   return `${errorMessage(e)}${id}`;
-}
-
-/** Keeps the space while the PayPal script loads, so the page does not jump. */
-function ButtonsWithFallback({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative min-h-[110px]">
-      <Skeleton className="absolute inset-x-0 top-0 h-12 -z-0" aria-hidden />
-      <div className="relative">{children}</div>  
-    </div>
-  );
 }

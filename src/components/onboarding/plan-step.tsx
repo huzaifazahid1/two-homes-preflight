@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatCents } from "@/lib/money";
 import { FAMILY_PRICE_CENTS, FAMILY_TRIAL_DAYS } from "@/lib/plans";
 import { FormError, StepHeader, StickyAction, useCompleteStep, type StepProps } from "./shared";
 
@@ -10,7 +11,7 @@ import { FormError, StepHeader, StickyAction, useCompleteStep, type StepProps } 
 export function PlanStep({ me }: StepProps) {
   const free = me.family?.plan.tier !== "family";
   const { complete, busy, error } = useCompleteStep("plan");
-  const price = `$${(FAMILY_PRICE_CENTS / 100).toFixed(2)}`;
+  const price = formatCents(FAMILY_PRICE_CENTS);
   return (
     <div className="space-y-6">
       <StepHeader title="Choose a plan">You can change plans later in Billing. The other parent never pays for the app.</StepHeader>

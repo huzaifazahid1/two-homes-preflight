@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/domain/status-badge";
 import type { Tone } from "@/components/domain/status-meta";
 import { SuccessCheck } from "@/components/domain/success-check";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PayPalFrame } from "@/components/payments/paypal-frame";
 import { api, ApiError, errorMessage } from "@/hooks/api";
 import { formatCents } from "@/lib/money";
 import { FAMILY_PRICE_CENTS, FAMILY_TRIAL_DAYS } from "@/lib/plans";
@@ -72,7 +72,7 @@ export function BillingPanel({ initial, familyId, timeZone }: { initial: Billing
                 <Money cents={used} /> of <Money cents={b.coveredVolume.limitCents} />
               </span>
             </div>
-            <div role="progressbar" aria-label="Covered volume used this month" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-2 overflow-hidden rounded-full bg-surface-2">
+            <div role="progressbar" aria-label="Covered volume used this month" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-valuetext={`${formatCents(used)} of ${formatCents(b.coveredVolume.limitCents)}`} className="h-2 overflow-hidden rounded-full bg-surface-2">
               <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
             </div>
             <p className="t-small text-muted-foreground">Above this, the paying parent sees a small processing fee before they pay. The parent who is owed always receives the full share.</p>
@@ -119,9 +119,7 @@ export function BillingPanel({ initial, familyId, timeZone }: { initial: Billing
             ))}
           </ul>
           <PayPalScriptProvider options={{ clientId: publicEnv().NEXT_PUBLIC_PAYPAL_CLIENT_ID, vault: true, intent: "subscription", components: "buttons" }}>
-            <div className="relative min-h-[110px] max-w-md">
-              <Skeleton className="absolute inset-x-0 top-0 h-12" aria-hidden />
-              <div className="relative">
+            <PayPalFrame className="min-h-[110px] max-w-md">
                 <PayPalButtons
                   style={{ layout: "vertical", shape: "rect", label: "subscribe", height: 48 }}
                   createSubscription={(_data, actions) => actions.subscription.create({ plan_id: b.planId!, custom_id: familyId })}
@@ -138,12 +136,11 @@ export function BillingPanel({ initial, familyId, timeZone }: { initial: Billing
                   onCancel={() => setError("Subscription cancelled in PayPal. Nothing was charged.")}
                   onError={() => setError("PayPal could not start the subscription. Nothing was charged. Please try again.")}
                 />
-              </div>
-            </div>
+            </PayPalFrame>
           </PayPalScriptProvider>
         </section>
       ) : !b.planConfigured && !b.entitled ? (
-        <p className="t-small rounded-md border border-border bg-surface-2 px-3 py-2 text-muted-foreground">The Family plan is not set up on this server yet (run scripts/setup-paypal-plans.ts and set PAYPAL_FAMILY_PLAN_ID).</p>
+        <p className="t-small rounded-md border border-border bg-surface-2 px-3 py-2 text-muted-foreground">The Family plan is not set up on this server yet. The Free plan works in full; settle shares outside the app and record them here.</p>
       ) : null}
     </div>
   );

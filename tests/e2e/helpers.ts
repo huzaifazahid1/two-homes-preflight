@@ -70,12 +70,14 @@ export async function expectNoHorizontalScroll(page: Page) {
 export const DEMO_AGREEMENT = readFileSync("fixtures/agreement/demo-agreement.md", "utf8");
 
 /** Onboarding step 2: paste the demo agreement, review (demo mode cached extraction), confirm all, activate. */
-export async function completeAgreementStep(page: Page) {
+export async function completeAgreementStep(page: Page, onStep: StepHook = noop) {
   await expect(page).toHaveURL(/\/onboarding\/agreement$/);
+  await onStep("onboarding-agreement");
   await page.getByText("Paste the text", { exact: true }).click();
   await page.getByLabel("Agreement text").fill(DEMO_AGREEMENT);
   await page.getByRole("button", { name: "Read the rules" }).click();
   await expect(page.getByText("Demo mode: cached extraction")).toBeVisible({ timeout: 30_000 });
+  await onStep("onboarding-rule-review");
   const confirm = page.getByRole("button", { name: "Confirm", exact: true });
   for (let n = await confirm.count(); n > 0; n--) {
     await confirm.first().click();
@@ -86,32 +88,47 @@ export async function completeAgreementStep(page: Page) {
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
+/** Called on each onboarding screen once it is ready (the accessibility pass scans them). */
+export type StepHook = (name: string) => Promise<void>;
+const noop: StepHook = async () => {};
+
 /** Full owner onboarding through the UI, ending on /app. */
-export async function onboardOwner(page: Page) {
+export async function onboardOwner(page: Page, onStep: StepHook = noop) {
   const email = uniqueEmail("alex");
   await page.goto("/signup");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("Passw0rd!long");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/verify-email$/, { timeout: 20_000 });
+  await onStep("verify-email");
   await verifyEmailInEmulator(email);
   await page.getByRole("button", { name: "I have verified my email" }).click();
+  await expect(page.getByLabel("Your name")).toBeVisible();
+  await onStep("onboarding-profile");
   await page.getByLabel("Your name").fill("Alex Rivera");
   await page.getByRole("button", { name: "Save and continue" }).click();
-  await completeAgreementStep(page);
+  await completeAgreementStep(page, onStep);
+  await expect(page.getByRole("button", { name: "Add Mia" })).toBeVisible();
+  await onStep("onboarding-family");
   await page.getByRole("button", { name: "Add Mia" }).click();
   await expect(page.getByRole("button", { name: "Remove Mia" })).toBeVisible();
   const coParentEmail = uniqueEmail("sara");
   await page.getByRole("region", { name: "The other parent" }).getByLabel("Email", { exact: true }).fill(coParentEmail);
   await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByRole("button", { name: "Send invite" })).toBeVisible();
+  await onStep("onboarding-invite");
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByLabel("Invite link (works for 7 days)")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("button", { name: "Use my PayPal email instead" })).toBeVisible();
+  await onStep("onboarding-paypal");
   await page.getByRole("button", { name: "Use my PayPal email instead" }).click();
   await page.getByLabel("PayPal email").fill("alex.pp@example.com");
   await page.getByLabel("Type it again").fill("alex.pp@example.com");
   await page.getByRole("button", { name: "Save PayPal email" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("button", { name: "Continue with Free" })).toBeVisible();
+  await onStep("onboarding-plan");
   await page.getByRole("button", { name: "Continue with Free" }).click();
   await expect(page).toHaveURL(/\/app$/);
   return { email, coParentEmail };

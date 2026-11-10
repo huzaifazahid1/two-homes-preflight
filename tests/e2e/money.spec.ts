@@ -64,6 +64,8 @@ test("ledger, billing and dark mode", async ({ page, isMobile }, info) => {
   await page.goto("/app/billing");
   await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Free" })).toBeVisible();
+  // Also proves .env.local does not leak into E2E (scripts/e2e-server.mjs blanks its keys).
+  await expect(page.getByText(/The Family plan is not set up on this server yet/)).toBeVisible();
   await expectNoHorizontalScroll(page);
   await shot(page, "billing", p);
 });

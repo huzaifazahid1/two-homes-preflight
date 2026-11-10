@@ -144,7 +144,7 @@ export function LedgerGrid({ view, onChanged }: { view: LedgerView; onChanged: (
       <FilterChip pressed={filters.overdueOnly} onClick={() => setFilter({ overdueOnly: !filters.overdueOnly })}>Overdue only</FilterChip>
       <FilterChip pressed={filters.owedToMe} onClick={() => setFilter({ owedToMe: !filters.owedToMe })}>Owed to me</FilterChip>
       {view.children.length > 1 ? (
-        <select aria-label="Child" value={filters.childId} onChange={(e) => setFilter({ childId: e.target.value })} className="h-11 rounded-lg border border-input bg-surface px-3 text-base lg:h-10 lg:text-sm">
+        <select aria-label="Child" value={filters.childId} onChange={(e) => setFilter({ childId: e.target.value })} className="h-11 rounded-lg border border-input bg-surface px-3 text-base text-foreground lg:h-10 lg:text-sm">
           <option value="">All children</option>
           {view.children.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
@@ -200,7 +200,7 @@ function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick:
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className="h-11 rounded-full border border-border px-4 text-sm font-medium transition-colors aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:text-primary lg:h-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-11 rounded-full border border-border px-4 text-sm font-medium transition-colors hover:border-primary/40 aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:text-primary lg:h-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
     </button>

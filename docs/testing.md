@@ -8,11 +8,12 @@ How to run each test layer. The strategy and every test case are in `docs/spec/t
 | Integration + API | `npm run test:integration` | Firebase emulators (project `demo-two-homes`), PayPal/Gemini/Resend/Cloudinary stubbed (`tests/helpers`) |
 | Both | `npm test` | |
 | E2E | `npm run test:e2e:build`, then `$env:E2E_SKIP_BUILD="1"; npm run test:e2e` | Production build in `.next-e2e` on :3100, emulators, dev outbox, Cloudinary stub. Phone (375 px) and desktop (1440 px) |
+| Accessibility + themes | part of E2E (`tests/e2e/a11y.spec.ts`; run alone with `npx playwright test a11y`) | axe WCAG 2.1 A + AA on every screen, light and dark, phone and desktop; no sideways scroll; skip link. `$env:E2E_SHOTS_DIR="shots"` also saves a screenshot of each screen in both themes |
 | SE-1 bundle check | `node scripts/check-bundle-secrets.mjs .next-e2e` | Client chunks of a build: no server secret names |
 | Invariants | `npm run invariants` (`-- --family=<id>` for one family) | Read-only, the Firebase project in `.env.local` |
 | Real PayPal sandbox | `npm run test:sandbox` | See below. Manual, never in CI |
 
-Every automated layer reads only `.env.test` and never touches the real Firebase project. CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration, E2E and SE-1 on every push to `main` and `phase-*` branches and on pull requests.
+Every automated layer reads only `.env.test` and never touches the real Firebase project. Vitest loads `.env.test` alone (`vitest.config.ts`). For E2E, `next build`/`next start` would also load `.env.local`, so `scripts/e2e-server.mjs` blanks every `.env.local` key that `.env.test` and its own overrides do not set; a local run therefore matches CI. E2E never calls Gemini, Cloudinary or PayPal: extraction uses the labelled demo-mode cache, receipt reading and quick add show their real "not configured" error states (asserted by the tests), and receipt storage is a local stub. CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration, E2E and SE-1 on every push to `main` and `phase-*` branches and on pull requests.
 
 ## Real PayPal sandbox journey (`@sandbox`)
 
@@ -59,6 +60,8 @@ On a low-memory machine the automated run can crash the dev server. The same cri
 
 Notes:
 
+- "Three runs" means this same journey done three separate times in a row, each from a new owner account. It is a repeatability check, not three different scenarios. If a run fails, the count starts again.
+- One-time codes: each "Email me a code" replaces the previous code for that link, and `/dev/demo` does not refresh by itself. Reload `/dev/demo` after asking for a code and use the newest code addressed to the payer. Old codes from earlier runs to the same sandbox address stay in the outbox (reset does not clear it).
 - On an 8 GB machine `next dev` can run out of memory; close other apps first.
 - The receipt fixtures are dated Nov 12, 2026; the run sets the receipt date to today.
 - The platform business account needs a sandbox balance for payouts (captured funds count).
