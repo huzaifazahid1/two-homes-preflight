@@ -73,7 +73,7 @@ Small implementation decisions made by Claude Code, with reasons. Architectural 
 | 2.18 | `src/lib/quote-verify.ts`, `src/lib/rules-review.ts` and `src/lib/rules-engine.ts` are pure and imported by client components (source highlight, issue text). | They import nothing server-only; one implementation for both sides. |
 | 2.19 | UI: native `<select>` for child and category; shadcn `empty`, `spinner`, `kbd` added (no new npm packages). The quick add result never sets a child or amount the note does not contain (server check). | P.9 forms; PF-10 "unspecified fields empty". |
 | 2.20 | `GEMINI_API_KEY` is blanked in `scripts/e2e-server.mjs`, so E2E uses the demo-mode cache deterministically. | E2E must not depend on a live AI. |
-| 2.21 | Gemini calls set a thinking level (extraction LOW, quick add MINIMAL) on Gemini 3+ models and the equivalent token budget on 2.x models, which reject `thinkingLevel`. One retry waits 2 s after a 503/429. | On 2026-11-09 `gemini-3.8-flash` timed out (504 at 88 s) or returned 503 "high demand" on every call, also at temperature 1; `gemini-2.5-flash` passed the three-run check in about 10 s per run. **Owner: choose the model in `GEMINI_MODEL`** (see progress.md). |
+| 2.21 | Gemini calls set a thinking level (extraction LOW, quick add MINIMAL) on Gemini 3+ models and the equivalent token budget on 2.x models, which reject `thinkingLevel`. One retry waits 2 s after a 503/429. | On 2026-11-09 `gemini-3.8-flash` timed out (504 at 88 s) or returned 503 "high demand" on every call, also at temperature 1; `gemini-2.5-flash` passed the three-run check in about 10 s per run. The model is set with `GEMINI_MODEL`. |
 
 ## Phase 3
 

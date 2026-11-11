@@ -1,6 +1,6 @@
 # Testing
 
-How to run each test layer. The strategy and every test case are in `docs/spec/testing.md` (Section N).
+How to run each test layer.
 
 | Layer | Command | Runs against |
 | --- | --- | --- |

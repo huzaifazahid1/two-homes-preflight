@@ -55,3 +55,12 @@ replay_pid*.log
 *.service-account.json
 /.next-e2e/
 /.next-sandbox/
+
+# internal planning docs (kept locally, not published)
+/CLAUDE.local.md
+/SETUP_GUIDE.md
+/docs/spec/
+/docs/phases/
+/docs/progress.md
+/docs/demo-script.md
+/docs/design-system.md

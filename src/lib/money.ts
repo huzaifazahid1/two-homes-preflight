@@ -1,4 +1,4 @@
-// Money is integer cents, USD only. No floats for money anywhere (CLAUDE.md rule 8).
+// Money is integer cents, USD only. No floats for money anywhere (CLAUDE.md rule 7).
 // Safe to import from client components.
 
 export const CURRENCY = "USD" as const;

@@ -10,7 +10,7 @@ import type { Actor, ExpenseDoc } from "@/types/firestore";
 import { effectiveApprovalState } from "./effective";
 import { decide, type Machine, type MachineEvent, type MachineState, type Patch, type TransitionFacts, type TransitionPayload } from "./machines";
 
-// The only writer of approval.state and settlement.state (Section E.6.4, CLAUDE.md rule 7).
+// The only writer of approval.state and settlement.state (CLAUDE.md rule 6).
 // One Firestore transaction: read the expense, apply time-derived rules, look up the table row,
 // check the guard, write the new state with version + 1, append one events row, write the audit
 // log and create notification docs. Emails are sent by the caller after commit.
