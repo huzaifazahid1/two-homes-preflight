@@ -1,157 +1,396 @@
 # Two Homes Preflight
 
-**Check the agreement before you spend.** A co-parenting expense app that reads your parenting agreement, tells you before a purchase whether it is covered (with the exact clause cited), gets the other parent's approval through a no-install link, matches the receipt, and settles the share through PayPal.
+**Check the agreement before you spend.**
 
-Built for the PayPal AI Hackathon 2026. All money is USD, all payments run in the PayPal sandbox, and all demo data is synthetic.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/huzaifazahid1/two-homes-preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/huzaifazahid1/two-homes-preflight/actions/workflows/ci.yml)
+![PayPal Sandbox](https://img.shields.io/badge/PayPal-Sandbox-003087?logo=paypal&logoColor=white)
+![Gemini](https://img.shields.io/badge/AI-Gemini-8E75B2?logo=googlegemini&logoColor=white)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)
+![AG Grid Community](https://img.shields.io/badge/AG%20Grid-Community-0C7CD5)
 
-Demo video: _link added after recording_
+Two Homes Preflight is a co-parenting expense app. It reads the parenting agreement, tells a parent **before a purchase** whether the expense is covered (citing the exact clause and page), gets the other parent's approval through a no-install link, matches the receipt, and settles the other parent's share through **PayPal**.
 
-## 1. Features
+Built for the **PayPal AI Hackathon 2026**. All payments run in the PayPal sandbox, all money is USD, and all demo data is synthetic.
 
-| Phase | Status | Features |
+| | |
+| --- | --- |
+| Demo video | _YouTube link added at submission_ |
+| Live demo | _Render URL added at submission_ |
+| Architecture | [docs/architecture.md](docs/architecture.md) |
+| API reference | [docs/api.md](docs/api.md) |
+| Testing guide | [docs/testing.md](docs/testing.md) |
+
+## Contents
+
+- [The problem](#the-problem)
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [PayPal integration](#paypal-integration)
+- [AI and sponsor tools](#ai-and-sponsor-tools)
+- [Architecture](#architecture)
+- [Run it locally](#run-it-locally)
+- [Demo walkthrough](#demo-walkthrough)
+- [Testing](#testing)
+- [Project structure](#project-structure)
+- [Plans](#plans)
+- [Limitations and production notes](#limitations-and-production-notes)
+- [License](#license)
+
+## The problem
+
+Separated parents usually split a child's costs according to a written agreement. In practice, nobody checks that agreement before spending. One parent buys something, the other says it was never agreed, receipts go missing, and money is chased by text message for weeks. The arguments are about the agreement, but the agreement is a PDF that nobody reads at the moment it matters.
+
+Two Homes Preflight moves the check to **before** the purchase and keeps every step (rule, approval, receipt, payment) tied to the sentence in the agreement that justifies it.
+
+## How it works
+
+```mermaid
+flowchart LR
+  A["Upload agreement"] --> B["Gemini extracts rules<br/>with verbatim quotes"]
+  B --> C["Quotes verified against<br/>the text, parent confirms"]
+  C --> D["Preflight: rules engine<br/>gives a clause-cited verdict"]
+  D --> E["Co-parent approves<br/>via link + email code"]
+  E --> F["Receipt to Cloudinary,<br/>read by Gemini, matched"]
+  F --> G["Payment request<br/>with due date"]
+  G --> H["Co-parent pays with PayPal<br/>(Orders v2 capture)"]
+  H --> I["Platform pays the owed parent<br/>(Payouts), webhooks confirm"]
+  I --> J["Ledger: every dollar<br/>traced to a clause"]
+```
+
+1. **Agreement.** The owner uploads the parenting agreement (PDF or pasted text). Gemini extracts expense rules, each with a verbatim quote and page number.
+2. **Verification.** Every quote is checked against the stored page text, and every number in a rule must appear in its quote. A parent confirms each rule before it is used. AI never decides a verdict.
+3. **Preflight.** Before buying, a parent describes the expense (or types a short note for AI quick add). A deterministic rules engine returns one verdict: Eligible, Needs approval, Missing evidence, Not covered, Late or Needs review, always citing the clause.
+4. **Approval.** If approval is needed, the co-parent gets an email link, confirms a one-time code, sees the clause and their share, and approves, partly approves or declines. No app install or account is required.
+5. **Receipt.** The receipt is stored privately on Cloudinary, read by Gemini, confirmed by the parent and matched against the approval (amount, date, store, duplicates).
+6. **Claim.** A payment request goes out with a due date taken from the agreement. Outstanding and overdue amounts are tracked, with reminders.
+7. **Settlement.** The paying parent pays with PayPal. The platform captures the payment and pays the owed parent through PayPal Payouts. Signed webhooks move the claim to Settled.
+8. **Record.** The ledger shows every expense with its clause, verdict, approval and settlement, with filters, totals and CSV export.
+
+## Features
+
+**Agreement and AI**
+- PDF or pasted-text upload, with scanned-PDF detection
+- Gemini rule extraction (structured JSON, verbatim quotes, page numbers)
+- Quote verification: exact match, match on another page, fuzzy match (similarity of at least 0.9), or not found. Unverified quotes cannot be confirmed
+- A value-in-quote check: every percentage, dollar amount and day count must appear in its quote, which blocks invented numbers and prompt injection
+- Rule review: confirm, edit (original kept), reject, or add by hand; source view with the quote highlighted
+- Versioned rule sets (draft, active, superseded); expenses stay pinned to the version they were checked against
+- Family details (parents, children) prefilled from the agreement
+
+**Preflight and expenses**
+- Deterministic rules engine with clause-cited verdicts and the split for each parent
+- AI quick add from a short note ("Mia soccer camp $350 next Saturday")
+- Live preflight while typing; duplicate expense check; full timeline per expense
+
+**Approvals and links**
+- Hashed, expiring link tokens with email one-time codes (rate limited, lockout after 5 wrong attempts)
+- Approve, approve part, or decline; 14-day expiry, reminder after 3 days, 7-day block after a decline
+- Co-parent can agree or disagree with each rule
+
+**Receipts**
+- Private Cloudinary storage with short-lived signed viewing URLs
+- File type checked by magic bytes, duplicate detection by hash
+- Gemini receipt reading (merchant, date, total, line items) with a manual fallback
+- Match warnings: over the approved amount, bought before approval, store mismatch, late, possible duplicate
+
+**Claims and money**
+- Payment requests with a due date from the agreement, derived overdue status, manual and automatic reminders
+- Mark received outside the app, waive, payer reports an outside payment, 7-day contest window, disputes
+- In-app PayPal settlement with a fee breakdown shown before payment
+- Reconcile with PayPal, payout retry after reconnecting, refund after a failed payout
+
+**Product**
+- Home dashboard with "needs your action" and totals, Money tab, live updates through Firestore listeners
+- AG Grid ledger on desktop, card list on phones
+- Free and Family plans with PayPal Subscriptions
+- Light and dark themes, responsive from 375 px phones to desktop, WCAG 2.1 AA checked with axe
+
+## Tech stack
+
+| Layer | Technology | Used for |
 | --- | --- | --- |
-| 0. Verify setup | Done | Toolchain verified, test and script wiring, project docs |
-| 1. Foundation | Done | Design system, email/password + Google sign-in, onboarding wizard, family and children, co-parent invite with hashed link tokens and email one-time codes, Resend email + dev outbox, live notification bell, Connect PayPal (Log in with PayPal + email fallback), approval/settlement state machines with `transition()` |
-| 2. Agreement and preflight | Done | Agreement upload (PDF or pasted text, scanned-PDF detection), Gemini rule extraction with verbatim quotes, quote verification (exact, other page, fuzzy >= 0.9, none), value-in-quote check against prompt injection, rule review (confirm, edit with original kept, reject, manual entry), source view with the quote highlighted, rule versions (DRAFT, ACTIVE, SUPERSEDED in one transaction), deterministic rules engine with clause-cited verdicts, expenses (create, edit, cancel, list, detail with timeline), live preflight, AI quick add, duplicate check, co-parent per-rule agree/disagree, family prefill from the agreement, labelled demo mode |
-| 3. Approvals and claims | Done | Approval by link with email code (approve, approve part, decline; 14-day expiry, 3-day reminder, 5 requests/day, 7-day block after a decline, cancel), purchased-before-approval warning and banner, receipts to Cloudinary (private, magic-byte check, duplicate hash, compensation on failure), Gemini receipt reading with manual fallback, receipt match (over approved, before approval, store mismatch, late, possible duplicate), payment requests with a clause-cited due date, outstanding and overdue (derived), manual reminder (72 h), mark received, waive, payer reports outside payment, 7-day contest, disputes (2 rounds), daily job + GitHub Actions schedule, Home totals and "needs your action", Money tab, real-time listeners, `/a/[token]` and `/p/[token]` pages, invariant checker |
-| 4. Money, billing, launch | In progress (code done, sandbox journey verified; deploy, recording and submission pending) | Pay with PayPal on `/p/[token]` (server-made Orders v2 order, capture, then Payouts to the owed parent), fee line above the covered volume, idempotency keys on every PayPal call, verified + deduped webhooks, reconcile (button, daily job), payout retry after reconnecting, refund after a failed payout, Family plan with PayPal Subscriptions (server-verified, cancel keeps access until paid-through, re-sync after 1 h), entitlement gating, settlement emails, AG Grid ledger (filters, quick search, CSV of selected rows, pinned totals) with a phone card list, `/app/billing`, Family choice in onboarding, `/dev/demo` with seed/reset and the dev outbox, `scripts/setup-paypal-plans.ts`, all 12 invariants checked |
+| Framework | Next.js 16 (App Router), React 19, TypeScript 6, Node 24 | Server Components for reads, Route Handlers for the API |
+| UI | Tailwind CSS 4, shadcn/ui, Motion, Geist fonts, lucide icons | Design system, light/dark themes, micro-interactions |
+| Tables | AG Grid Community 36 | Ledger |
+| Auth and data | Firebase Authentication, Cloud Firestore | Sign-in, session cookies, data, real-time listeners |
+| AI | Google Gemini (`@google/genai`) | Rule extraction, quick add, receipt reading |
+| Payments | PayPal Orders v2, Payouts, Subscriptions, Webhooks, Log in with PayPal (`@paypal/paypal-server-sdk`, `@paypal/react-paypal-js`) | Settlement and billing |
+| Files | Cloudinary | Private receipt storage |
+| Email | Resend | Invites, one-time codes, approvals, reminders, settlement notices |
+| Validation | zod | Every request, AI output and PayPal response |
+| Testing | Vitest, Playwright, MSW, Firebase emulators, axe | Unit, integration, E2E, accessibility |
+| CI and jobs | GitHub Actions | Test pipeline and a daily scheduled job |
+| Hosting | Render (free web service) | Deployment target |
 
-Screenshots are added in Phase 4.
+## PayPal integration
 
-## 2. Architecture
+PayPal is central to the product: it moves the money, sells the subscription and identifies the parent who gets paid.
 
-Next.js 16 (App Router) on Render, Firebase Auth + Cloud Firestore, Gemini for extraction, Cloudinary for receipts, Resend for email, PayPal sandbox for payments. The rules engine that gives verdicts is deterministic code, never AI.
+| PayPal product | How it is used | Code |
+| --- | --- | --- |
+| **Orders v2** | The server creates the order (amount always computed on the server: owed share plus any fee line) and captures it after the payer approves | [`src/lib/paypal/orders.ts`](src/lib/paypal/orders.ts), [`src/lib/checkout.ts`](src/lib/checkout.ts) |
+| **Payouts** | After capture, the platform pays the owed parent exactly their share (`sender_batch_id = {expenseId}-{attempt}`) | [`src/lib/paypal/payouts.ts`](src/lib/paypal/payouts.ts), [`src/lib/settlement.ts`](src/lib/settlement.ts) |
+| **Subscriptions** | Family plan: billing plan created by script, subscription verified on the server (`custom_id` = family, `plan_id` = our plan), cancel keeps access until the paid-through date | [`src/lib/paypal/subscriptions.ts`](src/lib/paypal/subscriptions.ts), [`scripts/setup-paypal-plans.ts`](scripts/setup-paypal-plans.ts) |
+| **Webhooks** | Signature verified with PayPal on the raw body, deduplicated by event id, then dispatched for capture, refund, payout, subscription and dispute events | [`src/lib/paypal/webhooks.ts`](src/lib/paypal/webhooks.ts), [`src/lib/paypal/webhook-dispatch.ts`](src/lib/paypal/webhook-dispatch.ts) |
+| **Log in with PayPal** | The receiving parent connects their PayPal account once (email fallback if unavailable) | [`src/lib/paypal/connect.ts`](src/lib/paypal/connect.ts) |
+| **JS SDK Buttons** | Checkout on the payment link page and subscription on the billing page | [`src/components/payments`](src/components/payments) |
 
-See [`docs/architecture.md`](docs/architecture.md) for the Mermaid diagrams (system, invite and link flow, Connect PayPal).
+**Pass-through model.** The paying parent pays the platform's business account (Orders v2, no `payee`), and the platform pays the receiving parent (Payouts). This works with two personal PayPal accounts and no seller onboarding.
 
-## 3. Setup
+**Money safety.**
+- Money is integer cents everywhere; no floating-point amounts.
+- Every PayPal write carries a deterministic `PayPal-Request-Id` (`order-…`, `capture-…`, `payout-…`, `refund-…`), so double clicks, retries, webhooks racing the capture response and reconcile can never capture or pay twice.
+- Every settlement change goes through one state machine function, `transition()`, inside a Firestore transaction with an audit log entry.
+- A reconcile action and a daily job re-check anything still in flight with PayPal.
+- An invariant checker (`npm run invariants`) verifies 12 money and state invariants against live data.
+
+## AI and sponsor tools
+
+### Gemini (runtime AI)
+
+Gemini runs inside the product through `@google/genai`:
+
+- **Agreement extraction:** structured JSON output at temperature 0 with verbatim quotes, verified by code before a parent can confirm them ([`src/lib/ai`](src/lib/ai), [`src/lib/quote-verify.ts`](src/lib/quote-verify.ts)).
+- **Quick add:** turns a short note into a filled expense form.
+- **Receipt reading:** merchant, date, total and line items from a photo or PDF; the parent confirms the values before matching.
+
+AI never gives a verdict. Verdicts come from deterministic code ([`src/lib/rules-engine.ts`](src/lib/rules-engine.ts)). On failure there is one retry, then a visible error with manual entry. With `DEMO_MODE=true`, if Gemini fails on the bundled demo agreement only, a recorded extraction is used and labelled "Demo mode: cached extraction".
+
+### AG Grid
+
+The ledger (`/app/ledger`, desktop) is built on AG Grid Community ([`src/components/grid`](src/components/grid)):
+
+- Custom cell renderers: a clause cell (short quote plus page chip that opens the agreement source with the quote highlighted), verdict, approval and settlement badges with derived overdue days, monospace money cells, action buttons
+- Multi-column sorting, text, number and date column filters, a quick search box, and external filters (Overdue only, Owed to me, per child)
+- Multi-row selection for CSV export of the selected rows
+- Pinned bottom totals row (computed by the server), pinned first column, resizing, pagination
+- `getRowId` set to the expense id, so live refreshes keep the selection
+- Theme generated from the app's CSS design tokens, so it follows light and dark mode
+
+Phones get a card list grouped by month instead of the grid.
+
+### APIMatic
+
+The PayPal Server SDK (`@paypal/paypal-server-sdk`) is generated by APIMatic, and the app uses it for Orders, refunds and Subscriptions. It was written in Claude Code with APIMatic's PayPal SDK context skills (in [`.claude/skills`](.claude/skills), `typescript-*`). The skills provided exact controller signatures, OAuth token provider setup, retry configuration and `ApiError` handling. Those details are used in [`src/lib/paypal/sdk.ts`](src/lib/paypal/sdk.ts), [`orders.ts`](src/lib/paypal/orders.ts), [`subscriptions.ts`](src/lib/paypal/subscriptions.ts) and [`scripts/setup-paypal-plans.ts`](scripts/setup-paypal-plans.ts). Payouts, webhook verification and catalog products use a typed `fetch` client ([`http.ts`](src/lib/paypal/http.ts)) because the SDK has no controllers for them.
+
+### Claude Code (development)
+
+The project was built with Claude Code (Anthropic) working from a written specification, with project rules in [`CLAUDE.md`](CLAUDE.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    Owner["Owner (signed in)"]
+    Guest["Co-parent (link + email code)"]
+  end
+  subgraph App["Next.js on Render"]
+    Pages["Server Components"]
+    API["Route Handlers"]
+    Lib["Domain logic: rules engine,<br/>state machines, settlement"]
+  end
+  Owner --> Pages
+  Owner --> API
+  Guest --> API
+  Owner -. "live listeners" .-> FS[(Firestore)]
+  Pages --> Lib
+  API --> Lib
+  Lib --> FS
+  Lib --> Auth[(Firebase Auth)]
+  Lib --> Gemini[Gemini]
+  Lib --> Cloudinary[Cloudinary]
+  Lib --> Resend[Resend]
+  Lib --> PayPal[PayPal sandbox]
+  PayPal -- "signed webhooks" --> API
+```
+
+Key design decisions:
+
+- **AI extracts, code decides.** Gemini proposes rules; code verifies them; a parent confirms them; a deterministic engine applies them.
+- **One writer for state.** Approval and settlement states change only through `transition()` ([`src/lib/state/transition.ts`](src/lib/state/transition.ts)), which checks a transition table, writes a timeline event and an audit entry in one transaction.
+- **Server-only writes.** Firestore security rules deny every client write; clients only read their own family's data through listeners.
+- **Derived time states.** Overdue, expiry and plan entitlement are computed from timestamps, never stored as flags.
+- **Thin handlers.** Every route goes through one `route()` wrapper (auth, zod validation, rate limits, error mapping, request id); business logic lives in `src/lib`.
+
+Detailed sequence diagrams for links, PayPal connect, extraction, approvals and payments: [docs/architecture.md](docs/architecture.md). Every endpoint with its auth and errors: [docs/api.md](docs/api.md).
+
+## Run it locally
+
+Commands below work in Windows PowerShell, macOS and Linux. Every service has a free tier; no card is needed.
 
 ### Prerequisites
 
-- Node 24, npm 11
-- Java 21 (for the Firebase emulators used by tests)
-- Firebase CLI via `npx firebase` (installed as a dev dependency) and `npx firebase login`
-- Accounts (free tiers only): Firebase, Google AI Studio, PayPal Developer (sandbox), Resend, Cloudinary, Render
+- Node.js 24 and npm 11
+- Java 21 (only for the automated tests, which use the Firebase emulators)
+- Accounts: [Firebase](https://console.firebase.google.com), [Google AI Studio](https://aistudio.google.com), [PayPal Developer](https://developer.paypal.com) (sandbox), [Cloudinary](https://cloudinary.com). [Resend](https://resend.com) is optional.
+- [ngrok](https://ngrok.com) (optional) to receive PayPal webhooks on your machine
 
-### Install
+### 1. Install
 
 ```powershell
+git clone https://github.com/huzaifazahid1/two-homes-preflight.git
+cd two-homes-preflight
 npm install
-Copy-Item .env.example .env.local   # then fill in real values
+cp .env.example .env.local
 ```
 
-### Environment variables
+On Windows PowerShell, `cp` is an alias of `Copy-Item`. Then fill in `.env.local` as described below. Every variable is validated at startup by [`src/lib/env.ts`](src/lib/env.ts), and a missing value produces a clear error naming the variable. The full list is in [`.env.example`](.env.example) and [docs/spec/env.md](docs/spec/env.md).
 
-All variables are listed with placeholders in `.env.example` and documented in `docs/spec/env.md`. They are validated at startup by `src/lib/env.ts`.
+### 2. App secrets
 
-| Group | Variables |
+`JOB_SECRET`, `LINK_SESSION_SECRET`, `OTP_PEPPER` and `DEV_SECRET` each need at least 32 random characters. Generate one per variable with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+```
+
+Set `DEMO_MODE=true` to enable the `/dev/demo` page (demo data seeding and the email outbox).
+
+### 3. Firebase
+
+1. Create a Firebase project. In **Authentication**, enable the **Email/Password** provider (Google is optional).
+2. Create a **Cloud Firestore** database.
+3. In Project settings, add a **Web app** and copy its config into the `NEXT_PUBLIC_FIREBASE_*` variables.
+4. In Project settings, Service accounts, generate a private key. Copy `project_id`, `client_email` and `private_key` into `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` (keep the `\n` sequences, in double quotes).
+5. Deploy the security rules and indexes:
+
+```powershell
+npx firebase login
+npx firebase use --add          # pick your project
+npm run firebase:deploy-rules
+```
+
+### 4. Gemini
+
+Create an API key in Google AI Studio and set `GEMINI_API_KEY`. Set `GEMINI_MODEL=gemini-2.5-flash` (the model verified with `npm run ai:check-extraction`).
+
+### 5. PayPal sandbox
+
+1. In the PayPal Developer Dashboard (Sandbox), open **Apps & Credentials** and create an app of type **Merchant** on your sandbox **business** account. This account is the platform that receives payments and sends payouts.
+2. Copy the Client ID into `PAYPAL_CLIENT_ID` and `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, and the secret into `PAYPAL_CLIENT_SECRET`.
+3. Create the Family plan (catalog product plus billing plan) and copy the printed id into `PAYPAL_FAMILY_PLAN_ID` and `NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID`:
+
+   ```powershell
+   npm run paypal:setup-plans
+   ```
+
+4. Webhooks: start a tunnel with `ngrok http 3000`. On the app, add a webhook for `https://<your-ngrok-domain>/api/webhooks/paypal` with the `PAYMENT.CAPTURE.*`, `PAYMENT.PAYOUTS-ITEM.*`, `PAYMENT.PAYOUTSBATCH.*`, `BILLING.SUBSCRIPTION.*`, `PAYMENT.SALE.COMPLETED`, `CHECKOUT.ORDER.APPROVED` and `CUSTOMER.DISPUTE.CREATED` events, and put its id in `PAYPAL_WEBHOOK_ID`. Without webhooks the app still works: the **Check with PayPal** button on an expense re-syncs from PayPal.
+5. Optional: enable **Log in with PayPal** on the app with return URL `http://localhost:3000/connect/paypal/callback` (`PAYPAL_CONNECT_RETURN_URL`). Without it, parents connect by confirming their PayPal email.
+6. Use the sandbox **personal** accounts from **Testing Tools, Sandbox Accounts** to pay and subscribe. The business account needs a sandbox balance for payouts.
+
+### 6. Cloudinary
+
+Copy the cloud name, API key and API secret into the `CLOUDINARY_*` variables. For PDF receipts, enable **Allow delivery of PDF and ZIP files** in Settings, Security.
+
+### 7. Email
+
+With `EMAIL_TRANSPORT=outbox` (the default), emails are not sent. They are stored in Firestore and shown, with working links and codes, on `/dev/demo`. To send real email, set `EMAIL_TRANSPORT=resend`, `RESEND_API_KEY`, and an `EMAIL_FROM` address on a domain verified in Resend.
+
+### 8. Start
+
+```powershell
+npm run dev
+```
+
+Open http://localhost:3000.
+
+### Deploying to Render
+
+Create a Render web service from the repository with build command `npm install; npm run build` and start command `npm start`, on Node 24. Add the same variables as `.env.local`, with `APP_URL` and `PAYPAL_CONNECT_RETURN_URL` pointing at the Render URL, and register a second PayPal webhook for `https://<service>.onrender.com/api/webhooks/paypal`. The daily job ([`.github/workflows/daily-job.yml`](.github/workflows/daily-job.yml)) needs the repository secrets `APP_URL` and `JOB_SECRET`.
+
+## Demo walkthrough
+
+**Fast path.** With `DEMO_MODE=true`, open `/dev/demo`, enter `DEV_SECRET`, and seed the synthetic family: Alex (owner), Sara (co-parent, at an email you choose) and their child Mia. The page shows the owner's sign-in, a reset button, and the email outbox with every link and one-time code. The same is available from the command line:
+
+```powershell
+npm run seed -- --coparent=<email> --paypal=<sandbox receiver email>
+npm run reset
+```
+
+**Full path.** Sign up, then paste [`fixtures/agreement/demo-agreement.md`](fixtures/agreement/demo-agreement.md) (or upload [`demo-agreement.pdf`](fixtures/agreement/demo-agreement.pdf)) during onboarding.
+
+What to try, with expected results:
+
+| Step | Expected result |
 | --- | --- |
-| App | `APP_URL`, `NEXT_PUBLIC_APP_URL`, `DEMO_MODE`, `DEV_SECRET`, `JOB_SECRET`, `LINK_SESSION_SECRET`, `OTP_PEPPER` |
-| Firebase client | `NEXT_PUBLIC_FIREBASE_*` (API key, auth domain, project id, app id, sender id) |
-| Firebase server | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` |
-| Gemini | `GEMINI_API_KEY`, `GEMINI_MODEL` |
-| PayPal | `PAYPAL_ENV`, `PAYPAL_API_BASE`, `PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_FAMILY_PLAN_ID`, `NEXT_PUBLIC_PAYPAL_FAMILY_PLAN_ID`, `PAYPAL_CONNECT_RETURN_URL`, `PLAN_COVERED_VOLUME_CENTS`, `FEE_PERCENT_BPS`, `FEE_FIXED_CENTS` |
-| Resend | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_TRANSPORT` |
-| Cloudinary | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER_PREFIX` (`CLOUDINARY_API_BASE` and `CLOUDINARY_TIMEOUT_MS` have safe defaults; the base is overridden only by tests) |
+| Review the extracted rules | Each rule shows its quote and page; the vague "reasonable" clause is flagged; a quote not found in the text cannot be confirmed |
+| Quick add "Mia soccer camp $350 next Saturday" | **Needs approval**, citing page 4 (approval above $200); the other parent owes $140 |
+| Add a $120 dentist visit | **Eligible**, citing page 3 (50/50, no approval); the other parent owes $60 |
+| Request approval, open the link from the outbox in a private window, enter the code | The co-parent sees the clause and their share and approves; the owner's screen updates live |
+| Upload [`fixtures/receipts/bright-smile-dental.jpg`](fixtures/receipts) | Gemini reads $120.00; after confirming, the receipt matches the expense |
+| Send the payment request and pay on the `/p/...` link with a sandbox personal account | Requires the Family plan (subscribe on `/app/billing` with a sandbox account first). Capture completes, a payout goes to the owed parent, and the claim moves to Settled when the webhook arrives |
+| Open `/app/ledger` on desktop | The clause chip opens the source page; filter Overdue only or Owed to me; select rows and export them to CSV |
 
-Never put `FIRESTORE_EMULATOR_HOST` or `FIREBASE_AUTH_EMULATOR_HOST` in `.env.local`. They live only in `.env.test`.
-
-### Run
-
-```powershell
-npm run dev          # http://localhost:3000, uses the real Firebase project
-```
-
-Emulators are used only by automated tests (see Testing).
-
-PayPal setup (once per sandbox app; the dev app "Two Homes Dev" and the prod app "Two Homes Prod" are separate, Section L.3):
-
-```powershell
-npm run paypal:setup-plans      # creates the product + Family plan; prints PAYPAL_FAMILY_PLAN_ID
-ngrok http --url=<your-static-domain>.ngrok-free.app 3000
-```
-
-In the PayPal developer dashboard add a webhook on the app for `https://<ngrok-domain>/api/webhooks/paypal` (Render: `https://<service>.onrender.com/api/webhooks/paypal`) with the events in `docs/spec/paypal-and-webhooks.md` G.7, and put its id in `PAYPAL_WEBHOOK_ID`. Fund the platform (business) sandbox account so payouts can go out.
-
-## 4. API endpoints
-
-Phase 4 adds checkout (`/api/links/:token/orders`, `/orders/:orderId/capture`), the PayPal webhook (`/api/webhooks/paypal`), money recovery (`/api/expenses/:id/reconcile`, `/payout/retry`, `/refund`), billing (`/api/billing`, `/subscription`, `/cancel`), the ledger (`/api/ledger`) and demo tools (`/api/dev/seed`, `/api/dev/reset`, only with `DEMO_MODE`).
-
-Phase 3 adds approvals (`/api/expenses/:id/approval-request`, `/api/links/:token/decision`), receipts (`/api/expenses/:id/receipts`, `/api/receipts/:id`, `/confirm`, `/url`), claims (`/api/expenses/:id/payment-request`, `/remind`, `/mark-received`, `/waive`, `/external-report/:action`, `/api/links/:token/report-external`), disputes (`/api/expenses/:id/dispute`, `/api/disputes/:id/respond`), `/api/dashboard` and the daily job `/api/jobs/daily` (bearer `JOB_SECRET`).
-
-Phase 2 adds agreements (`/api/agreements/*`), rule review and activation (`/api/rule-versions/*`), co-parent answers (`/api/links/:token/rules-ack`), quick add (`/api/ai/expense-parse`) and expenses with preflight (`/api/expenses/*`).
-
-Phase 1 endpoints: session (`/api/auth/session`), profile and onboarding (`/api/me`), family, children and invites (`/api/family/*`), links and one-time codes (`/api/links/:token/*`), Connect PayPal (`/api/paypal/connect/*`), notifications (`/api/notifications/read`). Full reference with auth and error codes: [`docs/api.md`](docs/api.md).
-
-## 5. Integrations
-
-- **PayPal (sandbox):** pass-through model. The paying parent pays the platform (Orders v2, no `payee`) and the platform pays the receiving parent (Payouts, `sender_batch_id = {expenseId}-{attempt}`). The order amount always comes from the server (owed share + fee line); the payout is always the owed share. Every call is keyed (`order-…`, `capture-…`, `payout-…`, `refund-…`), so double clicks, retries, webhooks racing the capture response and reconcile can never capture or pay twice. Webhooks: signature verified with PayPal on the raw body, deduped on `webhookEvents/{id}`, dispatched for capture, refund, payout item/batch, subscription, sale and dispute events. Family plan via Subscriptions, verified server-side (`custom_id` = family, `plan_id` = our plan). Log in with PayPal (or the email fallback) connects the receiving account.
-- **Built with the PayPal Context Plugin (APIMatic):** the plugin's Server SDK skills were used to write `src/lib/paypal/sdk.ts` (client, token provider, retries, timeout), `orders.ts` (create, capture, get, refund) and `subscriptions.ts` (get, cancel), and the plan creation in `scripts/setup-paypal-plans.ts`. Payouts, webhook verification and catalog products use our typed `fetch` in `http.ts` (the SDK has no controllers for them).
-- **Gemini (`@google/genai`):** extracts agreement rules and the named parents and children (structured JSON output, temperature 0, low thinking level), and fills the expense form from a short note. Every quote is verified against the stored page text; every percentage, dollar amount and day count must appear in its quote; a person confirms every rule. AI never gives a verdict. One retry, then a real error with manual entry. `npm run ai:check-extraction` runs the real model three times on the fixture agreement.
-- **Demo mode:** with `DEMO_MODE=true`, if Gemini fails on the fixture agreement, the recorded extraction in `fixtures/ai/` is used and labelled "Demo mode: cached extraction". It never applies to other documents.
-- **Cloudinary:** receipts only, uploaded through our server (type by magic bytes, size, duplicate hash first) as `type: private`. Only the `publicId` and metadata are stored; viewing returns a 5-minute signed download URL. Requests are signed with the SDK's own helpers and sent with `fetch` so each has a timeout. A failed upload releases the duplicate hash; a failed database write after upload deletes the asset. Enable "Allow delivery of PDF and ZIP files" in Cloudinary Security settings for PDF receipts.
-- **Gemini receipt reading:** merchant, date, total and line items from the photo or PDF; the parent always confirms the values before the match runs. If reading fails, the parent types them. Free plan: 10 readings per month.
-- **Daily job:** `.github/workflows/daily-job.yml` calls `POST /api/jobs/daily` every day at 14:00 UTC. Needs repository secrets `APP_URL` and `JOB_SECRET`.
-- **Resend:** transactional email from `mail.huzaifalabs.site`; a dev outbox is used in development and tests.
-- **AG Grid Community (36.3, `AllCommunityModule` only):** `/app/ledger` on desktop. Multi-column sorting, text/number/date column filters, quick filter (search box), external filters (Overdue only, Owed to me, per child), pagination (25/50/100), multi-row selection for CSV export of the selected rows, pinned bottom totals row computed by the server, pinned first column, resizing, `getRowId` = expense id so live refreshes keep the selection, custom cell renderers (clause quote with page chip that opens the source view, verdict/approval/settlement badges with derived overdue days, Geist Mono amounts, actions). Theme from our design tokens, light and dark. Phones get a card list grouped by month.
-
-## 6. Testing
+## Testing
 
 | Command | What it runs |
 | --- | --- |
-| `npm run test:unit` | Vitest unit tests (`tests/unit`) |
-| `npm run test:integration` | Vitest integration + API tests inside the Firebase emulators (project `demo-two-homes`) |
+| `npm run test:unit` | Vitest unit tests: rules engine, state machines, money, fees, quote verification, matching |
+| `npm run test:integration` | Route handlers against the Firebase emulators, with PayPal, Gemini, Resend and Cloudinary replaced by local stubs (including a stateful PayPal fake that honours `PayPal-Request-Id`) |
 | `npm test` | Unit, then integration |
-| `npm run test:e2e:build` | Builds the E2E app alone (use first on Windows; `next build` can crash when it runs while the emulators start), then run `npm run test:e2e` with `E2E_SKIP_BUILD=1` |
-| `npm run test:e2e` | Playwright, phone (375 px) and desktop (1440 px) projects. Starts the emulators and `scripts/e2e-server.mjs` (production build in `.next-e2e`, port 3100, `.env.test` values, dev outbox). `E2E_SKIP_BUILD=1` reuses the last build. Receipt uploads go to a Cloudinary stub inside `scripts/e2e-server.mjs` (tests only) |
-| `npx playwright test a11y` | Accessibility and theme pass alone: axe (WCAG 2.1 A + AA, contrast included) on every screen in light and dark, phone and desktop, plus sideways-scroll and skip-link checks. Part of `npm run test:e2e` |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | ESLint |
-| `npm run ai:check-extraction` | Real Gemini (key from `.env.local`) on the synthetic fixture, three runs; add `-- --record` to save the answer to `fixtures/ai/recorded-extraction.json` |
-| `npm run invariants` | Read-only invariant checker (Section E.7, all checks; 12 is guaranteed by the notification doc id) against the project in `.env.local`. `-- --family=<id>` limits it to one family |
-| Sandbox E2E (manual, before recording) | From a fresh `/dev/demo` reset + seed: subscribe to Family on `/app/billing` with a sandbox personal account, send a claim, pay it on `/p/[token]` with the sandbox payer, watch Paid, Payout processing, Settled (webhook via ngrok), then `npm run invariants`. Three times in a row |
+| `npm run test:e2e:build`, then `npm run test:e2e` | Playwright journeys (onboarding, expenses, approvals, money) on a 375 px phone and a 1440 px desktop, plus an axe accessibility pass on every screen in light and dark themes. On Windows, set `$env:E2E_SKIP_BUILD="1"` before `npm run test:e2e` to reuse the build |
+| `npm run test:sandbox` | Real end-to-end PayPal sandbox journey (manual, never in CI) |
+| `npm run invariants` | Read-only check of 12 money and state invariants against the configured Firebase project |
+| `npm run ai:check-extraction` | Runs the real Gemini model three times on the demo agreement |
+| `npm run typecheck`, `npm run lint` | TypeScript and ESLint |
 
-Tests read only `.env.test` and never touch the real Firebase project (for E2E, `scripts/e2e-server.mjs` blanks any `.env.local` key so a local run matches CI). E2E covers UI journeys with AI and receipt storage in their fallback states; real Gemini, Cloudinary and PayPal are covered by the manual sandbox journey. Integration tests mock PayPal, Resend, Gemini and Cloudinary with a local stub server (`tests/helpers/stub-server.ts`); `tests/helpers/paypal.ts` is a small stateful PayPal (orders, captures, payout batches, subscriptions, signature checks) that honours `PayPal-Request-Id` like the real API. If `next build` runs out of memory, use `$env:NODE_OPTIONS="--max-old-space-size=3072"` and close other apps.
+Current results: **178 unit tests and 221 integration tests** passing, E2E journeys passing on phone and desktop, and the real sandbox journey (subscribe, receipt read, claim, one-time code, capture, payout, webhooks) completed with **zero invariant violations**.
 
-CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration, the E2E build, the SE-1 bundle secret check and E2E on every push to `main` and `phase-*` branches and on pull requests. It needs no secrets: every layer reads only `.env.test`. How each layer works: [`docs/testing.md`](docs/testing.md).
+Automated tests read only the committed [`.env.test`](.env.test) and never touch a real Firebase project or a real external service. [GitHub Actions](.github/workflows/ci.yml) runs typecheck, lint, unit, integration, E2E and a client-bundle secret scan on every push and pull request, without any secrets. Details: [docs/testing.md](docs/testing.md).
 
-## 7. Demo
+## Project structure
 
-With `DEMO_MODE=true`, `/dev/demo` seeds the synthetic family (Alex the owner, Sara the co-parent at the email you give, Mia) through the real routes, shows the demo owner's sign-in, resets all demo data, and shows the dev email outbox with working links. The same is available as `npm run seed -- --coparent=<email> [--paypal=<sandbox email>]` and `npm run reset`. Both need `DEV_SECRET`. Sandbox PayPal logins are the personal (payer) and business (platform) accounts from the PayPal developer dashboard; they are never committed. In local development emails go to the `devOutbox` Firestore collection unless `EMAIL_TRANSPORT=resend`. The synthetic agreement is `fixtures/agreement/demo-agreement.md` (paste it as-is, or make the PDF as described in `fixtures/agreement/README.md`). With it, a $350 soccer camp is Needs approval citing page 4 (the other parent owes $140) and a $120 dentist visit is Eligible. The video script and pre-demo checklist are in [`docs/demo-script.md`](docs/demo-script.md).
+```
+src/
+  app/
+    (public)/            landing, pricing, legal, sign-in pages
+    (app)/app/           dashboard, expenses, money, ledger, agreement, billing, settings
+    onboarding/          setup wizard
+    r/ a/ p/[token]/     invite, approval and payment link pages (no account needed)
+    api/                 route handlers, including webhooks/paypal and jobs/daily
+  components/            ui (shadcn), layout, domain components, grid (AG Grid)
+  lib/
+    rules-engine.ts      deterministic verdicts
+    quote-verify.ts      AI quote verification
+    state/               state machines and transition()
+    paypal/              SDK client, orders, payouts, subscriptions, webhooks, connect
+    ai/                  Gemini client, prompts, schemas, demo mode
+    receipts/            Cloudinary upload and receipt matching
+    settlement.ts        capture, payout and reconcile orchestration
+  schemas/  types/       shared zod schemas and Firestore types
+scripts/                 PayPal plan setup, demo seed/reset, invariant checker
+fixtures/                synthetic agreement, receipts and recorded AI output
+tests/                   unit, integration, api, e2e, sandbox, helpers
+docs/                    architecture, API, testing, decisions, specifications
+```
 
-## 8. Known limitations and open items
+## Plans
 
-- Pass-through settlement (collecting from one parent and paying another) is money transmission in most US states. A real launch needs PayPal approval for this model and legal review. This build runs in the PayPal sandbox only.
-- The app does not give legal advice; it shows what the agreement text says, with quotes.
-- Demo data is synthetic.
-- Live (not part of this project) would need a business platform account in a supported country with Payouts approved by PayPal; personal accounts in some countries (including Pakistan) cannot receive commercial payments. None of this affects the sandbox build.
-- On the Free plan claims are settled outside the app and confirmed in it; the payment page says so instead of showing a fake button.
-- After a payout succeeds there is no in-app refund. A PayPal dispute or reversal is recorded on the timeline and in the audit log; production would need a reserve policy.
-- The fee line is an estimate from `FEE_PERCENT_BPS` + `FEE_FIXED_CENTS` ([Confirm] 2); PayPal's actual fee is stored from each capture.
-- A guest co-parent who is owed money gets settlement emails without a connect link (the demo receiver is the owner, who has an account).
-- A late receipt on an expense that was already approved has no way to get a new approval (the state machine has no row from APPROVED back to REQUESTED). Owner decision pending.
-- After an approval request is cancelled there is no way to request again (no row from CANCELLED); the expense can be cancelled. Owner decision pending.
-- `gemini-3.8-flash` timed out or was overloaded on every call on 2026-11-09; `gemini-2.5-flash` passed the three-run check. The model is set by `GEMINI_MODEL`.
-- Once an expense needs approval it stays that way when its amount is lowered (the state machine has no way back).
+Pricing is illustrative and runs in the PayPal sandbox; no real payments are taken. The parent who sets up the family chooses the plan, and the co-parent never pays for the app.
 
-Open [Confirm] items (defaults in use):
-
-| # | Item | Default |
+| | Free | Family ($7.99/month, 14-day trial) |
 | --- | --- | --- |
-| 1 | Family plan price, trial, covered volume | $7.99/month, 14 days, $200/month (illustrative) |
-| 2 | Fee-line constants | Read from a real sandbox capture |
-| 3 | Default due days | 30 |
-| 4 | Log in with PayPal availability on the sandbox app | Code ready; owner to enable it on the sandbox app and test. Email fallback works |
-| 5 | Log in with PayPal endpoints and userinfo field names | Verify in sandbox |
-| 6 | Payouts duplicate `sender_batch_id` error shape, unclaimed period, sandbox fee | Test in sandbox |
-| 7 | TypeScript 7 compatibility | Stay on 6.0.3 |
-| 9 | AG Grid sponsor prize proof requirements | README section either way |
+| Agreement extraction | 1 agreement, 3 extraction runs | Unlimited runs and amendments |
+| Preflight, approvals, receipts, claims, tracking | Yes | Yes |
+| AI receipt reading | 10 per month | Unlimited |
+| Settlement | Paid outside the app and confirmed in it | Paid in the app through PayPal |
+| Processing fees | n/a | Covered up to a monthly volume of claims; above it, an estimated fee is shown to the payer before checkout |
+| Automatic payment reminders | No | Yes |
 
-## 9. Changelog
+## Limitations and production notes
 
-- **Phase 4 (2026-11-10 to 11-11, in progress):** PayPal checkout + payouts with idempotency, webhooks, reconcile, retry and refund, Family plan subscriptions and entitlement, fee line, settlement emails, AG Grid ledger, billing page, onboarding Family choice, demo seed/reset and `/dev/demo`, plan setup script, money invariants. Then: landing refresh, skip link, PayPal load-failure state, plan values from one place, CI workflow, real sandbox journey (manual, owner) with zero invariant violations, accessibility and dark-mode pass with axe on every screen, E2E isolated from `.env.local`. 178 unit, 221 integration (29 new for payments, webhooks and subscriptions against a stateful PayPal fake) and 4 E2E journeys on phone and desktop, plus the accessibility pass.
+- **Sandbox only.** Collecting from one parent and paying another (pass-through settlement) is regulated as money transmission in most US states. A production launch would need PayPal's approval for this model and a legal review.
+- **Not legal advice.** The app shows what the agreement says, with quotes; it does not interpret the law.
+- **Synthetic data.** The demo agreement, people and receipts are fictional.
+- **Fee estimate.** The fee line shown above the covered volume is an estimate from configured rates; the actual PayPal fee is stored from each capture.
+- **Refunds.** A refund is offered when a payout fails. After a payout succeeds there is no in-app refund; a PayPal dispute or reversal is recorded on the timeline and in the audit log.
+- **Guest receivers.** A guest co-parent who is owed money receives settlement emails but cannot yet connect PayPal from the email link; in the demo, the owed parent is the account owner.
 
-- **Phase 3 (2026-11-09):** Approvals by link + code, receipts (Cloudinary + Gemini + match), claims with due dates, outstanding/overdue, reminders, manual resolution, disputes, daily job, dashboard totals by aggregation, Money tab, live listeners, invariant checker. 167 unit, 180 integration and 6 E2E runs (3 journeys on phone and desktop).
-- **Phase 0 (2026-11-09):** Verified toolchain (Node 24, Java 21, Firebase CLI + emulators), build, typecheck and lint. Added npm scripts, Vitest and Playwright configs, and project docs. Allowed `.env.test` to be committed.
-- **Phase 2 (2026-11-09):** Agreement upload and extraction, quote verification, rule review and versions, rules engine, expenses with live preflight and timeline, quick add, co-parent rule answers, family prefill, demo mode, fixtures. UI: verdict panel, source sheet, split bar, timeline, empty states, full-screen forms on phones, `N` shortcut. 149 unit, 120 integration and 4 E2E runs (2 journeys on phone and desktop).
-- **Phase 1 (2026-11-09):** Foundation: core lib and `route()` wrapper, state machines and `transition()`, session auth, onboarding wizard, family and invites, link tokens + OTP, Resend + outbox, notifications bell, Connect PayPal, Firestore rules and indexes, design system and app shell. 95 unit, 74 integration and 2 E2E tests.
+## License
+
+[MIT](LICENSE). The agent skills in [`.claude/skills`](.claude/skills) are third-party content distributed under their own licenses.
