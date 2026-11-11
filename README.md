@@ -239,7 +239,7 @@ npm install
 cp .env.example .env.local
 ```
 
-On Windows PowerShell, `cp` is an alias of `Copy-Item`. Then fill in `.env.local` as described below. Every variable is validated at startup by [`src/lib/env.ts`](src/lib/env.ts), and a missing value produces a clear error naming the variable. The full list is in [`.env.example`](.env.example) and [docs/spec/env.md](docs/spec/env.md).
+On Windows PowerShell, `cp` is an alias of `Copy-Item`. Then fill in `.env.local` as described below. Every variable is validated at startup by [`src/lib/env.ts`](src/lib/env.ts), and a missing value produces a clear error naming the variable. The full list is in [`.env.example`](.env.example).
 
 ### 2. App secrets
 
