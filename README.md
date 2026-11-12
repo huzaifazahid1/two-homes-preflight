@@ -13,15 +13,27 @@
 
 Two Homes Preflight is a co-parenting expense app. It reads the parenting agreement, tells a parent **before a purchase** whether the expense is covered (citing the exact clause and page), gets the other parent's approval through a no-install link, matches the receipt, and settles the other parent's share through **PayPal**.
 
-Built for the **PayPal AI Hackathon 2026**. All payments run in the PayPal sandbox, all money is USD, and all demo data is synthetic.
+Built for the **PayPal AI Hackathon 2026** during the official build window. All payments run in the PayPal sandbox, all money is USD, and all demo data is synthetic.
+
+![Preflight result: Needs approval, with the agreement clause and page cited](docs/images/hero.png)
 
 | | |
 | --- | --- |
-| Demo video | _YouTube link added at submission_ |
-| Live demo | _Render URL added at submission_ |
+| Demo video |https://youtu.be/m4ofZTya-5A?si=uNxvEti99h2zZRyq |
+| Live demo | https://two-homes-preflight.onrender.com |
 | Architecture | [docs/architecture.md](docs/architecture.md) |
 | API reference | [docs/api.md](docs/api.md) |
 | Testing guide | [docs/testing.md](docs/testing.md) |
+| Judges | Test logins and sandbox accounts are in the Devpost submission's testing instructions |
+
+**Where to look, by judging area**
+
+| Area | What to look at |
+| --- | --- |
+| PayPal | Orders v2 capture, Payouts, Subscriptions, verified webhooks, Log in with PayPal ([PayPal integration](#paypal-integration)) |
+| AI | Gemini extraction whose quotes and numbers are verified by code before a parent can confirm them ([AI and sponsor tools](#ai-and-sponsor-tools)) |
+| Engineering | One state-machine writer, idempotent PayPal calls, 12 checked invariants, unit, integration and E2E tests ([Architecture](#architecture), [Testing](#testing)) |
+| AG Grid | The ledger: custom renderers, filters, selection export, pinned totals, themed light and dark ([AG Grid](#ag-grid)) |
 
 ## Contents
 
@@ -42,9 +54,26 @@ Built for the **PayPal AI Hackathon 2026**. All payments run in the PayPal sandb
 
 ## The problem
 
-Separated parents usually split a child's costs according to a written agreement. In practice, nobody checks that agreement before spending. One parent buys something, the other says it was never agreed, receipts go missing, and money is chased by text message for weeks. The arguments are about the agreement, but the agreement is a PDF that nobody reads at the moment it matters.
+Separated parents usually split a child's costs according to a written agreement. In practice, the agreement is often checked only after the money is spent. One parent buys something, the other says it was never agreed, receipts go missing, and money is chased by text message for weeks. The arguments are about the agreement, but the agreement is a PDF that is hard to check at the moment it matters.
 
 Two Homes Preflight moves the check to **before** the purchase and keeps every step (rule, approval, receipt, payment) tied to the sentence in the agreement that justifies it.
+
+**Evidence we built on**
+
+| Finding | Source |
+| --- | --- |
+| 13.9 million custodial parents in the US raise 22.2 million children whose other parent lives elsewhere; 37.3% had a legal child support agreement in 2022, down from 55.1% in 2003 | [US Census Bureau, P60-285 (2025)](https://www2.census.gov/library/publications/2025/demo/p60-285.pdf) |
+| Court forms ask parents to consult before an expense is incurred, and set receipt deadlines | [Kansas Agreed Shared Parenting Plan](https://2jd.kscourts.gov/KSCourts/media/KsCourts/Trial%20court%20programs/App-VI-Agreed-shared-parenting-plan.pdf), [Ohio Form 20](https://www.supremecourt.ohio.gov/docs/JCS/CFC/DRForms/Form20.pdf) |
+| Commercial legal AI tools produced incorrect or misgrounded answers in 17% to 33% of queries in one study, which is why our AI never decides | [Magesh et al., Stanford](https://law.stanford.edu/wp-content/uploads/2024/05/Legal_RAG_Hallucinations.pdf) |
+| Family law professionals report expense requests being used to pressure a former partner, which is why the app has request limits | [Smyth et al., 2023](https://www.tandfonline.com/doi/abs/10.1080/09649069.2023.2206225) |
+
+We did not run user interviews, so we make no claim about demand or willingness to pay.
+
+## How it compares
+
+Expense tracking, receipt scanning, custom splits, approvals after a request, and paying without installing an app already exist in co-parenting products (for example OurFamilyWizard, FairSplit, Blended and SupportPay). Checking spending against written policy before it happens, with the policy text cited, already exists in corporate expense tools (for example [Ramp](https://support.ramp.com/reviewing-transactions-from-ramp-cards)). We did not build those ideas first and do not claim to.
+
+What we combine, and did not find in the public product pages we reviewed in November 2026: a **clause-and-page-cited eligibility check before the purchase**, built from the family's own agreement, with **the same approval carried through the receipt and the PayPal payout**. That is the result of our search, not proof that nobody else does it.
 
 ## How it works
 
@@ -107,7 +136,7 @@ flowchart LR
 - Home dashboard with "needs your action" and totals, Money tab, live updates through Firestore listeners
 - AG Grid ledger on desktop, card list on phones
 - Free and Family plans with PayPal Subscriptions
-- Light and dark themes, responsive from 375 px phones to desktop, WCAG 2.1 AA checked with axe
+- Light and dark themes, responsive from 375 px phones to desktop, axe accessibility checks (WCAG 2.1 A and AA rules) in the E2E suite
 
 ## Tech stack
 
@@ -124,7 +153,7 @@ flowchart LR
 | Validation | zod | Every request, AI output and PayPal response |
 | Testing | Vitest, Playwright, MSW, Firebase emulators, axe | Unit, integration, E2E, accessibility |
 | CI and jobs | GitHub Actions | Test pipeline and a daily scheduled job |
-| Hosting | Render (free web service) | Deployment target |
+| Hosting | Render web service | Live deployment and the PayPal webhook endpoint |
 
 ## PayPal integration
 
@@ -138,6 +167,122 @@ PayPal is central to the product: it moves the money, sells the subscription and
 | **Webhooks** | Signature verified with PayPal on the raw body, deduplicated by event id, then dispatched for capture, refund, payout, subscription and dispute events | [`src/lib/paypal/webhooks.ts`](src/lib/paypal/webhooks.ts), [`src/lib/paypal/webhook-dispatch.ts`](src/lib/paypal/webhook-dispatch.ts) |
 | **Log in with PayPal** | The receiving parent connects their PayPal account once (email fallback if unavailable) | [`src/lib/paypal/connect.ts`](src/lib/paypal/connect.ts) |
 | **JS SDK Buttons** | Checkout on the payment link page and subscription on the billing page | [`src/components/payments`](src/components/payments) |
+
+**Pass-through model.** The paying parent pays the platform's business account (Orders v2, no `payee`), and the platform pays the receiving parent (Payouts). This works with two personal PayPal accounts and no seller onboarding.
+
+**Money safety.**
+- Money is integer cents everywhere; no floating-point amounts.
+- Every PayPal write carries a deterministic `PayPal-Request-Id` (`order-…`, `capture-…`, `payout-…`, `refund-…`), so double clicks, retries, webhooks racing the capture response and reconcile can never capture or pay twice.
+- Every settlement change goes through one state machine function, `transition()`, inside a Firestore transaction with an audit log entry.
+- A reconcile action and a daily job re-check anything still in flight with PayPal.
+- An invariant checker (`npm run invariants`) verifies 12 money and state invariants against live data.
+
+## AI and sponsor tools
+
+### Gemini (runtime AI)
+
+Gemini runs inside the product through `@google/genai`:
+
+- **Agreement extraction:** structured JSON output at temperature 0 with verbatim quotes, verified by code before a parent can confirm them ([`src/lib/ai`](src/lib/ai), [`src/lib/quote-verify.ts`](src/lib/quote-verify.ts)).
+- **Quick add:** turns a short note into a filled expense form.
+- **Receipt reading:** merchant, date, total and line items from a photo or PDF; the parent confirms the values before matching.
+
+AI never gives a verdict. Verdicts come from deterministic code ([`src/lib/rules-engine.ts`](src/lib/rules-engine.ts)). On failure there is one retry, then a visible error with manual entry. With `DEMO_MODE=true`, if Gemini fails on the bundled demo agreement only, a recorded extraction is used and labelled "Demo mode: cached extraction".
+
+### AG Grid
+
+The ledger (`/app/ledger`, desktop) is built on AG Grid Community ([`src/components/grid`](src/components/grid)):
+
+- Custom cell renderers: a clause cell (short quote plus page chip that opens the agreement source with the quote highlighted), verdict, approval and settlement badges with derived overdue days, monospace money cells, action buttons
+- Multi-column sorting, text, number and date column filters, a quick search box, and external filters (Overdue only, Owed to me, per child)
+- Multi-row selection for CSV export of the selected rows
+- Pinned bottom totals row (computed by the server), pinned first column, resizing, pagination
+- `getRowId` set to the expense id, so live refreshes keep the selection
+- Theme generated from the app's CSS design tokens, so it follows light and dark mode
+
+Phones get a card list grouped by month instead of the grid.
+
+### APIMatic
+
+The PayPal Server SDK (`@paypal/paypal-server-sdk`) is generated by APIMatic, and the app uses it for Orders, refunds and Subscriptions. It was written in Claude Code with APIMatic's PayPal SDK context skills (in [`.claude/skills`](.claude/skills), `typescript-*`). The skills provided exact controller signatures, OAuth token provider setup, retry configuration and `ApiError` handling. Those details are used in [`src/lib/paypal/sdk.ts`](src/lib/paypal/sdk.ts), [`orders.ts`](src/lib/paypal/orders.ts), [`subscriptions.ts`](src/lib/paypal/subscriptions.ts) and [`scripts/setup-paypal-plans.ts`](scripts/setup-paypal-plans.ts). Payouts, webhook verification and catalog products use a typed `fetch` client ([`http.ts`](src/lib/paypal/http.ts)) because the SDK has no controllers for them.
+
+### AI tools statement
+
+| Tool | Used for |
+| --- | --- |
+| Google Gemini (`gemini-2.5-flash`, through `@google/genai`) | Runtime: agreement rule extraction, quick add, receipt reading |
+| Claude Code (Anthropic) | Development: code and tests written from a written specification, reviewed and run by the author |
+| APIMatic PayPal Server SDK context skills | Development: exact PayPal Server SDK usage for Orders, refunds and Subscriptions |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    Owner["Owner (signed in)"]
+    Guest["Co-parent (link + email code)"]
+  end
+  subgraph App["Next.js on Render"]
+    Pages["Server Components"]
+    API["Route Handlers"]
+    Lib["Domain logic: rules engine,<br/>state machines, settlement"]
+  end
+  Owner --> Pages
+  Owner --> API
+  Guest --> API
+  Owner -. "live listeners" .-> FS[(Firestore)]
+  Pages --> Lib
+  API --> Lib
+  Lib --> FS
+  Lib --> Auth[(Firebase Auth)]
+  Lib --> Gemini[Gemini]
+  Lib --> Cloudinary[Cloudinary]
+  Lib --> Resend[Resend]
+  Lib --> PayPal[PayPal sandbox]
+  PayPal -- "signed webhooks" --> API
+```
+
+Key design decisions:
+
+- **AI extracts, code decides.** Gemini proposes rules; code verifies them; a parent confirms them; a deterministic engine applies them.
+- **One writer for state.** Approval and settlement states change only through `transition()` ([`src/lib/state/transition.ts`](src/lib/state/transition.ts)), which checks a transition table, writes a timeline event and an audit entry in one transaction.
+- **Server-only writes.** Firestore security rules deny every client write; clients only read their own family's data through listeners.
+- **Derived time states.** Overdue, expiry and plan entitlement are computed from timestamps, never stored as flags.
+- **Thin handlers.** Every route goes through one `route()` wrapper (auth, zod validation, rate limits, error mapping, request id); business logic lives in `src/lib`.
+
+Detailed sequence diagrams for links, PayPal connect, extraction, approvals and payments: [docs/architecture.md](docs/architecture.md). Every endpoint with its auth and errors: [docs/api.md](docs/api.md).
+
+## Run it locally
+
+Commands below work in Windows PowerShell, macOS and Linux. Every service has a free tier; no card is needed.
+
+### Prerequisites
+
+- Node.js 24 and npm 11
+- Java 21 (only for the automated tests, which use the Firebase emulators)
+- Accounts: [Firebase](https://console.firebase.google.com), [Google AI Studio](https://aistudio.google.com), [PayPal Developer](https://developer.paypal.com) (sandbox), [Cloudinary](https://cloudinary.com). [Resend](https://resend.com) is optional.
+- [ngrok](https://ngrok.com) (optional) to receive PayPal webhooks on your machine
+
+### 1. Install
+
+```powershell
+git clone https://github.com/huzaifazahid1/two-homes-preflight.git
+cd two-homes-preflight
+npm install
+cp .env.example .env.local
+```
+
+On Windows PowerShell, `cp` is an alias of `Copy-Item`. Then fill in `.env.local` as described below. Every variable is validated at startup by [`src/lib/env.ts`](src/lib/env.ts), and a missing value produces a clear error naming the variable. The full list is in [`.env.example`](.env.example).
+
+### 2. App secrets
+
+`JOB_SECRET`, `LINK_SESSION_SECRET`, `OTP_PEPPER` and `DEV_SECRET` each need at least 32 random characters. Generate one per variable with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+```
+
+Set `DEMO_MODE=true` to enable the `/onents/payments) |
 
 **Pass-through model.** The paying parent pays the platform's business account (Orders v2, no `payee`), and the platform pays the receiving parent (Payouts). This works with two personal PayPal accounts and no seller onboarding.
 
